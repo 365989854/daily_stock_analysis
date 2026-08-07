@@ -3562,7 +3562,7 @@ class GeminiAnalyzer:
                         current_prompt,
                         generation_config,
                         system_prompt=system_prompt,
-                        stream=True,
+                        stream=False,
                         stream_progress_callback=stream_progress_callback,
                         response_validator=self._validate_json_response,
                         audit_context=legacy_audit_context,
