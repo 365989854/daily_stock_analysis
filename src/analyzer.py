@@ -2784,7 +2784,6 @@ class GeminiAnalyzer:
         if keys:
             effective_kwargs["api_key"] = keys[0]
         effective_kwargs.update(extra_litellm_params(model, config))
-        logger.info(f"MODEL={effective_kwargs.get('model')}, STREAM={effective_kwargs.get('stream')}, MAX_TOKENS={effective_kwargs.get('max_tokens')}")
         return litellm.completion(**effective_kwargs)
 
     def _normalize_usage(
