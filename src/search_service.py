@@ -13,6 +13,7 @@ A股自选股智能分析系统 - 搜索服务模块
 
 import logging
 import multiprocessing
+import os
 import re
 import threading
 import time
@@ -2028,7 +2029,9 @@ class SearXNGSearchProvider(BaseSearchProvider):
 
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                "CF-Access-Client-Id": os.environ["CF_ACCESS_CLIENT_ID"],
+                "CF-Access-Client-Secret": os.environ["CF_ACCESS_CLIENT_SECRET"],
             }
             params = {
                 "q": query,
