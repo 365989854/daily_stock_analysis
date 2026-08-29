@@ -12,14 +12,10 @@ Important:
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
-
-
-logger = logging.getLogger(__name__)
 
 
 def _classify_position(
@@ -115,7 +111,6 @@ def calculate_volume_profile(
         Dict containing POC, VAH, VAL and HVNs, or None if data is insufficient.
     """
     if df is None or df.empty:
-        logger.warning("Volume Profile not generated: historical_df is empty")
         return None
 
     if bins < 10:
@@ -130,11 +125,6 @@ def calculate_volume_profile(
 
     required = {"high", "low", "volume"}
     if not required.issubset(df.columns):
-        logger.warning(
-            "Volume Profile not generated: required columns missing required=%s columns=%s",
-            sorted(required),
-            list(df.columns),
-        )
         return None
 
     data = df.copy()
@@ -155,14 +145,6 @@ def calculate_volume_profile(
     ]
 
     if data.empty:
-        volume_nonzero = int(
-            (pd.to_numeric(df["volume"], errors="coerce") > 0).sum()
-        )
-        logger.warning(
-            "Volume Profile not generated: no valid OHLCV after cleanup, historical_rows=%d volume_nonzero=%d",
-            len(df),
-            volume_nonzero,
-        )
         return None
 
     data = data.tail(lookback).copy()
@@ -232,10 +214,6 @@ def calculate_volume_profile(
     total_volume = float(profile.sum())
 
     if total_volume <= 0:
-        logger.warning(
-            "Volume Profile not generated: profile total_volume <= 0, rows=%d",
-            len(data),
-        )
         return None
 
     centers = (edges[:-1] + edges[1:]) / 2.0
@@ -292,7 +270,7 @@ def calculate_volume_profile(
         total_volume,
     )
 
-    result = {
+    return {
         "lookback": int(len(data)),
         "bins": int(bins),
         "value_area_pct": round(value_area_pct, 4),
@@ -314,15 +292,3 @@ def calculate_volume_profile(
         "total_volume": round(total_volume, 2),
         "source": "derived_ohlcv",
     }
-
-    logger.info(
-        "Volume Profile generated: rows=%d POC=%s VAH=%s VAL=%s position=%s lookback=%s",
-        len(data),
-        result["poc"],
-        result["vah"],
-        result["val"],
-        result["position"],
-        result["lookback"],
-    )
-
-    return result
