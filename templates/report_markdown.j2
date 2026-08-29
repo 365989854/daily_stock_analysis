@@ -109,9 +109,36 @@
 {% endif %}
 
 {% set chip_data = data_persp.get('chip_structure', {}) %}
+{% set volume_profile = data_persp.get('volume_profile', {}) %}
 {% set chip_unavailable_reason = get_chip_unavailable_reason(chip_data, report_language) if chip_data and is_chip_structure_unavailable(chip_data) else get_chip_unavailable_reason(data_persp, report_language) %}
 {% if chip_data and not is_chip_structure_unavailable(chip_data) %}
 **{{ labels.chip_label }}**: {{ chip_data.get('profit_ratio', 'N/A') }} | {{ chip_data.get('avg_cost', 'N/A') }} | {{ chip_data.get('concentration', 'N/A') }} {{ localize_chip_health(chip_data.get('chip_health', 'N/A'), report_language) }}
+{% elif volume_profile %}
+**Volume Profile（历史成交量价格分布）**
+
+| POC | VAH | VAL | 当前价 |
+|-----|-----|-----|-------|
+| {{ volume_profile.get('poc', 'N/A') }} | {{ volume_profile.get('vah', 'N/A') }} | {{ volume_profile.get('val', 'N/A') }} | {{ volume_profile.get('current_price', 'N/A') }} |
+
+- 价格位置:
+{% set vp_position = volume_profile.get('position', 'unknown') %}
+{% if vp_position == 'above_value_area' %}价格位于价值区上方
+{% elif vp_position == 'below_value_area' %}价格位于价值区下方
+{% elif vp_position == 'inside_value_area_above_poc' %}价格位于价值区内、POC上方
+{% elif vp_position == 'inside_value_area_below_poc' %}价格位于价值区内、POC下方
+{% else %}当前价格位置未知
+{% endif %}
+- 回看周期: {{ volume_profile.get('lookback', 'N/A') }} 个完整交易日
+
+{% set high_volume_nodes = volume_profile.get('high_volume_nodes') or [] %}
+{% if high_volume_nodes %}
+- 高成交量密集区:
+{% for node in high_volume_nodes[:3] %}
+  - {{ node.get('low', 'N/A') }} ~ {{ node.get('high', 'N/A') }}{% if node.get('volume_share') is number %} (成交量占比 {{ '%.1f%%' | format(node.get('volume_share') * 100) }}){% endif %}
+{% endfor %}
+{% endif %}
+
+*注：Volume Profile 仅表示历史 OHLCV 推导的成交量价格分布；POC 是最大成交密集价，不是“主力成本”，也不代表真实投资者持仓成本。*
 {% elif chip_unavailable_reason %}
 **{{ labels.chip_label }}**: {{ chip_unavailable_reason }}
 {% endif %}
