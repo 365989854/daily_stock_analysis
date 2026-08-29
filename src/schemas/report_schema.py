@@ -70,6 +70,18 @@ class ChipStructure(BaseModel):
     chip_health: Optional[str] = None
 
 
+class VolumeProfile(BaseModel):
+    """Historical OHLCV-derived volume-by-price profile."""
+
+    poc: Optional[Union[int, float, str]] = None
+    vah: Optional[Union[int, float, str]] = None
+    val: Optional[Union[int, float, str]] = None
+    current_price: Optional[Union[int, float, str]] = None
+    position: Optional[str] = None
+    lookback: Optional[Union[int, float, str]] = None
+    high_volume_nodes: Optional[List[Dict[str, Any]]] = None
+
+
 class DataPerspective(BaseModel):
     """Data perspective block."""
 
@@ -77,6 +89,7 @@ class DataPerspective(BaseModel):
     price_position: Optional[PricePosition] = None
     volume_analysis: Optional[VolumeAnalysis] = None
     chip_structure: Optional[ChipStructure] = None
+    volume_profile: Optional[VolumeProfile] = None
 
 
 class Intelligence(BaseModel):

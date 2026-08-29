@@ -1424,6 +1424,7 @@ class NotificationService(
                     price_data = data_persp.get('price_position', {})
                     vol_data = data_persp.get('volume_analysis', {})
                     chip_data = data_persp.get('chip_structure', {})
+                    volume_profile = data_persp.get('volume_profile', {})
 
                     report_lines.extend([
                         f"### 📊 {labels['data_perspective_heading']}",
@@ -1479,6 +1480,54 @@ class NotificationService(
                                 f"{chip_data.get('concentration', 'N/A')} {chip_health}",
                                 "",
                             ])
+                    elif volume_profile:
+                        position_map = {
+                            "above_value_area": "价格位于价值区上方",
+                            "below_value_area": "价格位于价值区下方",
+                            "inside_value_area_above_poc": "价格位于价值区内、POC上方",
+                            "inside_value_area_below_poc": "价格位于价值区内、POC下方",
+                            "unknown": "当前价格位置未知",
+                        }
+                        vp_position = volume_profile.get("position", "unknown")
+                        vp_position_text = position_map.get(vp_position, vp_position)
+
+                        report_lines.extend([
+                            "**Volume Profile（历史成交量价格分布）**",
+                            "",
+                            f"| POC | VAH | VAL | 当前价 |",
+                            "|-----|-----|-----|-------|",
+                            f"| {volume_profile.get('poc', 'N/A')} | "
+                            f"{volume_profile.get('vah', 'N/A')} | "
+                            f"{volume_profile.get('val', 'N/A')} | "
+                            f"{volume_profile.get('current_price', 'N/A')} |",
+                            "",
+                            f"- 价格位置: {vp_position_text}",
+                            f"- 回看周期: {volume_profile.get('lookback', 'N/A')} 个完整交易日",
+                        ])
+
+                        high_volume_nodes = volume_profile.get("high_volume_nodes") or []
+                        if high_volume_nodes:
+                            report_lines.append("- 高成交量密集区:")
+                            for node in high_volume_nodes[:3]:
+                                if isinstance(node, dict):
+                                    low = node.get("low", "N/A")
+                                    high = node.get("high", "N/A")
+                                    share = node.get("volume_share")
+                                    if isinstance(share, (int, float)):
+                                        share_text = f"{share * 100:.1f}%"
+                                    else:
+                                        share_text = "N/A"
+                                    report_lines.append(
+                                        f"  - {low} ~ {high} (成交量占比 {share_text})"
+                                    )
+
+                        report_lines.extend([
+                            "",
+                            "*注：Volume Profile 仅表示历史 OHLCV 推导的成交量价格分布；"
+                            "POC 是最大成交密集价，不是“主力成本”，"
+                            "也不代表真实投资者持仓成本。*",
+                            "",
+                        ])
                     else:
                         chip_unavailable_reason = get_chip_unavailable_reason(data_persp, report_language)
                         if chip_unavailable_reason:
