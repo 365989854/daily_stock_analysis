@@ -904,13 +904,28 @@ def _mark_chip_structure_unavailable(result: "AnalysisResult", language: str) ->
     data_perspective["chip_unavailable_reason"] = get_chip_unavailable_text(language)
 
 
-def normalize_chip_structure_availability(result: "AnalysisResult", chip_data: Any) -> None:
+def normalize_chip_structure_availability(
+    result: "AnalysisResult",
+    chip_data: Any,
+    volume_profile: Any = None,
+) -> None:
     """Fill valid chip metrics or collapse placeholder-only chip fields to one fallback line."""
     if not result:
         return
     language = getattr(result, "report_language", "zh")
     if _has_meaningful_chip_data(chip_data):
         fill_chip_structure_if_needed(result, chip_data)
+        return
+    if isinstance(volume_profile, dict) and volume_profile:
+        if not isinstance(result.dashboard, dict):
+            result.dashboard = {}
+        data_perspective = result.dashboard.get("data_perspective")
+        if not isinstance(data_perspective, dict):
+            data_perspective = {}
+            result.dashboard["data_perspective"] = data_perspective
+        data_perspective["volume_profile"] = dict(volume_profile)
+        data_perspective.pop("chip_structure", None)
+        data_perspective.pop("chip_unavailable_reason", None)
         return
     _mark_chip_structure_unavailable(result, language)
 
@@ -1904,6 +1919,7 @@ class GeminiAnalyzer:
     # ========================================
 
     LEGACY_DEFAULT_SYSTEM_PROMPT = """你是一位专注于趋势交易的{market_placeholder}投资分析师，负责生成专业的【决策仪表盘】分析报告。
+美股 Volume Profile 仅表示历史成交量价格分布；POC 是最大成交密集价/最大成交量价格区域，不是“主力成本”。不得由此推导或编造 profit_ratio、avg_cost、concentration、concentration_70、concentration_90。
 
 {guidelines_placeholder}
 
@@ -1964,6 +1980,15 @@ class GeminiAnalyzer:
                 "avg_cost": 平均成本,
                 "concentration": 筹码集中度,
                 "chip_health": "健康/一般/警惕"
+            },
+            "volume_profile": {
+                "poc": 最大成交量价格区域,
+                "vah": 价值区域上沿,
+                "val": 价值区域下沿,
+                "current_price": 当前价格,
+                "position": "当前价格相对价值区域的位置",
+                "lookback": 历史日K回看周期,
+                "high_volume_nodes": [高成交量价格节点对象]
             }
         },
 
@@ -2091,6 +2116,7 @@ class GeminiAnalyzer:
 - 盘前、非交易日或未知阶段不得伪造今日盘中走势；quote/daily_bars/technical 存在 stale、fallback、missing、fetch_failed、partial 或 estimated 时，`confidence_level` 不得为高。"""
 
     SYSTEM_PROMPT = """你是一位{market_placeholder}投资分析师，负责生成专业的【决策仪表盘】分析报告。
+美股 Volume Profile 仅表示历史成交量价格分布；POC 是最大成交密集价/最大成交量价格区域，不是“主力成本”。不得由此推导或编造 profit_ratio、avg_cost、concentration、concentration_70、concentration_90。
 
 {guidelines_placeholder}
 
@@ -2152,6 +2178,15 @@ class GeminiAnalyzer:
                 "avg_cost": 平均成本,
                 "concentration": 筹码集中度,
                 "chip_health": "健康/一般/警惕"
+            },
+            "volume_profile": {
+                "poc": 最大成交量价格区域,
+                "vah": 价值区域上沿,
+                "val": 价值区域下沿,
+                "current_price": 当前价格,
+                "position": "当前价格相对价值区域的位置",
+                "lookback": 历史日K回看周期,
+                "high_volume_nodes": [高成交量价格节点对象]
             }
         },
 
@@ -3925,7 +3960,11 @@ class GeminiAnalyzer:
                 result.market_snapshot = self._build_market_snapshot(context)
                 result.model_used = model_used
                 result.report_language = report_language
-                normalize_chip_structure_availability(result, context.get("chip"))
+                normalize_chip_structure_availability(
+                    result,
+                    context.get("chip"),
+                    context.get("volume_profile"),
+                )
 
                 # 内容完整性校验（可选）
                 if not config.report_integrity_enabled:
@@ -4251,7 +4290,7 @@ class GeminiAnalyzer:
 > 三大法人是台股的筹码过滤器（相当于 A 股主力资金/龙虎榜的角色，但口径不同、不可混用）：外资与投信同向净买支持价格、同向净卖压制价格。请据此判断台股筹码结构，不要在有本数据时写“筹码结构：数据缺失”。
 """
 
-        # 添加筹码分布数据
+        # 添加筹码分布数据或美股历史成交量价格分布
         if 'chip' in context:
             chip = context['chip']
             profit_ratio = chip.get('profit_ratio', 0)
@@ -4264,6 +4303,22 @@ class GeminiAnalyzer:
 | 90%筹码集中度 | {chip.get('concentration_90', 0):.2%} | <15%为集中 |
 | 70%筹码集中度 | {chip.get('concentration_70', 0):.2%} | |
 | 筹码状态 | {chip.get('chip_status', unknown_text)} | |
+"""
+        elif isinstance(context.get("volume_profile"), dict) and context["volume_profile"]:
+            vp = context["volume_profile"]
+            prompt += f"""
+### Volume Profile（历史成交量价格分布）
+| 指标 | 数值 |
+|------|------|
+| POC（最大成交密集价/最大成交量价格区域） | {vp.get('poc', 'N/A')} |
+| VAH（价值区域上沿） | {vp.get('vah', 'N/A')} |
+| VAL（价值区域下沿） | {vp.get('val', 'N/A')} |
+| 当前价格 | {vp.get('current_price', 'N/A')} |
+| 当前价格位置 | {vp.get('position', 'N/A')} |
+| 高成交量节点 | {vp.get('high_volume_nodes', 'N/A')} |
+| 回看周期 | {vp.get('lookback', 'N/A')} 个完整历史日K |
+
+> Volume Profile 是由完整历史 OHLCV 推导的成交量价格分布，不是真实投资者持仓成本；POC 不是“主力成本”。不得据此推导或编造 profit_ratio、avg_cost、concentration、concentration_70、concentration_90。
 """
         else:
             chip_unavailable_text = get_chip_unavailable_text(report_language)

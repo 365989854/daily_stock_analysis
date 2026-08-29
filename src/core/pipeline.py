@@ -65,6 +65,7 @@ from src.agent.news_evidence import (
     reset_news_evidence_scope,
 )
 from src.services.empty_news import news_evidence_present
+from src.services.volume_profile import calculate_volume_profile
 from src.formatters import strip_hidden_markdown_metadata
 from src.phase_decision_guardrail import apply_phase_decision_guardrails
 from src.services.daily_market_context import (
@@ -572,6 +573,7 @@ class StockAnalysisPipeline:
 
             # Step 3: 趋势分析（基于交易理念）— 在 Agent 分支之前执行，供两条路径共用
             trend_result: Optional[TrendAnalysisResult] = None
+            volume_profile: Optional[Dict[str, Any]] = None
             try:
                 from src.services.history_loader import get_frozen_target_date
                 _mkt = get_market_for_stock(normalize_stock_code(code))
@@ -580,7 +582,26 @@ class StockAnalysisPipeline:
                 start_date = end_date - timedelta(days=89)  # ~60 trading days for MA60
                 historical_bars = self.db.get_data_range(code, start_date, end_date)
                 if historical_bars:
-                    df = pd.DataFrame([bar.to_dict() for bar in historical_bars])
+                    historical_df = pd.DataFrame([bar.to_dict() for bar in historical_bars])
+                    if market == "us":
+                        try:
+                            volume_profile = calculate_volume_profile(
+                                historical_df,
+                                bins=40,
+                                value_area_pct=0.70,
+                                lookback=30,
+                                current_price=(
+                                    getattr(realtime_quote, "price", None)
+                                    if realtime_quote
+                                    else None
+                                ),
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                f"{stock_name}({code}) Volume Profile 计算失败: {e}",
+                                exc_info=True,
+                            )
+                    df = historical_df
                     # Issue #234: Augment with realtime for intraday MA calculation
                     if self.config.enable_realtime_quote and realtime_quote:
                         df = self._augment_historical_with_realtime(df, realtime_quote, code)
@@ -602,6 +623,7 @@ class StockAnalysisPipeline:
                     chip_data,
                     fundamental_context,
                     trend_result,
+                    volume_profile,
                     market_phase_context=market_phase_context_dict,
                     market_phase_summary=market_phase_summary,
                     daily_market_context=daily_market_context,
@@ -709,6 +731,7 @@ class StockAnalysisPipeline:
                 trend_result,
                 stock_name,  # 传入股票名称
                 fundamental_context,
+                volume_profile=volume_profile,
                 market_phase_context=market_phase_context_dict,
                 portfolio_context=portfolio_context,
             )
@@ -824,7 +847,7 @@ class StockAnalysisPipeline:
 
             # Step 7.6: chip_structure fallback (Issue #589) and unavailable collapse
             if result:
-                normalize_chip_structure_availability(result, chip_data)
+                normalize_chip_structure_availability(result, chip_data, volume_profile)
 
             # Step 7.7: price_position fallback
             if result:
@@ -930,6 +953,7 @@ class StockAnalysisPipeline:
         trend_result: Optional[TrendAnalysisResult],
         stock_name: str = "",
         fundamental_context: Optional[Dict[str, Any]] = None,
+        volume_profile: Optional[Dict[str, Any]] = None,
         market_phase_context: Optional[Dict[str, Any]] = None,
         portfolio_context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
@@ -950,6 +974,8 @@ class StockAnalysisPipeline:
             增强后的上下文
         """
         enhanced = context.copy()
+        if volume_profile:
+            enhanced["volume_profile"] = dict(volume_profile)
         enhanced["report_language"] = normalize_report_language(getattr(self.config, "report_language", "zh"))
         
         # 添加股票名称
@@ -1346,6 +1372,7 @@ class StockAnalysisPipeline:
         chip_data: Optional[ChipDistribution],
         fundamental_context: Optional[Dict[str, Any]] = None,
         trend_result: Optional[TrendAnalysisResult] = None,
+        volume_profile: Optional[Dict[str, Any]] = None,
         *,
         market_phase_context: Optional[Dict[str, Any]] = None,
         market_phase_summary: Optional[Dict[str, Any]] = None,
@@ -1396,6 +1423,8 @@ class StockAnalysisPipeline:
                 initial_context["chip_distribution"] = self._safe_to_dict(chip_data)
             if trend_result:
                 initial_context["trend_result"] = self._safe_to_dict(trend_result)
+            if volume_profile:
+                initial_context["volume_profile"] = dict(volume_profile)
 
             # Agent path: inject social sentiment as news_context so both
             # executor (_build_user_message) and orchestrator (ctx.set_data)
@@ -1546,8 +1575,8 @@ class StockAnalysisPipeline:
                         missing,
                     )
             # chip_structure fallback (Issue #589), before save_analysis_history
-            if result and chip_data is not None:
-                normalize_chip_structure_availability(result, chip_data)
+            if result:
+                normalize_chip_structure_availability(result, chip_data, volume_profile)
 
             # price_position fallback (same as non-agent path Step 7.7)
             if result:
