@@ -104,10 +104,11 @@
 
 {% set vol_data = get_report_volume_analysis(result, report_language) %}
 {% if vol_data %}
-**{{ labels.volume_label }}**: {{ labels.volume_ratio_label }} {{ format_volume_ratio(vol_data.get('volume_ratio'), report_language) }} ({{ vol_data.get('volume_status', '') }}) | {{ labels.turnover_rate_label }}：{{ format_turnover_rate(vol_data.get('turnover_rate'), report_language) }}
-💡 *{{ vol_data.get('volume_meaning', '') }}*
+**{{ labels.volume_label }}**: {{ labels.volume_ratio_label }} {{ format_volume_ratio(vol_data.get('volume_ratio'), report_language) }}{% if vol_data.get('volume_status') %} ({{ vol_data['volume_status'] }}){% endif %} | {{ labels.turnover_rate_label }}：{{ format_turnover_rate(vol_data.get('turnover_rate'), report_language) }}
+{% if vol_data.get('volume_meaning') %}💡 *{{ vol_data['volume_meaning'] }}*{% endif %}
 {% endif %}
 
+{% if data_persp.get('chip_not_applicable') %}**{{ labels.chip_label }}**: {{ data_persp['chip_unavailable_reason'] }}{% endif %}
 {% set chip_data = data_persp.get('chip_structure', {}) %}
 {% set volume_profile = data_persp.get('volume_profile', {}) %}
 {% set chip_unavailable_reason = get_chip_unavailable_reason(chip_data, report_language) if chip_data and is_chip_structure_unavailable(chip_data) else get_chip_unavailable_reason(data_persp, report_language) %}
@@ -139,7 +140,7 @@
 {% endif %}
 
 *注：Volume Profile 仅表示历史 OHLCV 推导的成交量价格分布；POC 是最大成交密集价，不是“主力成本”，也不代表真实投资者持仓成本。*
-{% elif chip_unavailable_reason %}
+{% elif chip_unavailable_reason and not data_persp.get('chip_not_applicable') %}
 **{{ labels.chip_label }}**: {{ chip_unavailable_reason }}
 {% endif %}
 {% endif %}

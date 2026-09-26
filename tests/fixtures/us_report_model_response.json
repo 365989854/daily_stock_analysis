@@ -1,0 +1,148 @@
+{
+  "stock_name": "博通（AVGO）",
+  "sentiment_score": 58,
+  "trend_prediction": "震荡",
+  "operation_advice": "观望",
+  "decision_type": "hold",
+  "action": "watch",
+  "guardrail_reason": "均线系统尚未形成标准多头排列（MA10 < MA20），且价格处于 MA20 压力位下方，量能萎缩显示上攻动能不足，建议等待趋势确认。",
+  "confidence_level": "中",
+  "dashboard": {
+    "core_conclusion": {
+      "one_sentence": "股价处于均线缠绕震荡期，建议等待放量突破MA20或回踩MA10确认支撑。",
+      "signal_type": "🟡持有观望",
+      "time_sensitivity": "不急",
+      "position_advice": {
+        "no_position": "空仓者建议：暂时观望，不建议在MA20压力位下方盲目追入，待回踩351元附近或放量突破358元。",
+        "has_position": "持仓者建议：持股观望，关注MA10（351元）支撑，若跌破则考虑减仓。"
+      }
+    },
+    "data_perspective": {
+      "trend_status": {
+        "ma_alignment": "均线缠绕，MA5 > MA10 但 MA10 ≤ MA20，短期震荡整理",
+        "is_bullish": false,
+        "trend_score": 55
+      },
+      "price_position": {
+        "current_price": 352.81,
+        "ma5": 357.07,
+        "ma10": 351.06,
+        "ma20": 357.54,
+        "bias_ma5": -1.19,
+        "bias_status": "安全",
+        "support_level": 351.06,
+        "resistance_level": 357.54
+      },
+      "volume_analysis": {
+        "volume_ratio": null,
+        "volume_status": "缩量",
+        "turnover_rate": 0,
+        "volume_meaning": "较前一交易日成交量仅为0.77倍，缩量上涨显示市场追高意愿不强，缺乏合力。"
+      },
+      "chip_structure": {
+        "profit_ratio": null,
+        "avg_cost": null,
+        "concentration": null,
+        "chip_health": "数据缺失，无法判断"
+      },
+      "volume_profile": {
+        "poc": 364.863,
+        "vah": 371.5612,
+        "val": 348.596,
+        "current_price": 352.81,
+        "position": "inside_value_area_below_poc",
+        "lookback": 30,
+        "high_volume_nodes": [
+          {
+            "low": 352.42,
+            "high": 369.65,
+            "volume_share": 0.5987
+          },
+          {
+            "low": 348.6,
+            "high": 350.51,
+            "volume_share": 0.044
+          }
+        ]
+      }
+    },
+    "intelligence": {
+      "latest_news": "【最新消息】2026-09-24 Samueli Foundation 提议出售 72,474 股博通股票；分析师共识评级为“强力买入”。",
+      "risk_alerts": [
+        "风险点1：2026-09-24 Samueli Foundation 提议减持 72,474 股，可能带来短期心理压力。",
+        "风险点2：当前股价位于 POC (364.86) 下方，上方存在较大成交密集区压力。"
+      ],
+      "positive_catalysts": [
+        "利好1：2026-09-25 机构分析显示博通在定制芯片领域具有高度差异化竞争优势。",
+        "利好2：2026-09-25 多数分析师给出买入评级，平均目标价远高于现价。"
+      ],
+      "earnings_outlook": "2026-07-31 财报显示净利润表现强劲，ROE高达44.25%，业绩基本面扎实。",
+      "sentiment_summary": "市场情绪中性偏乐观，机构看好长期潜力，但短期受减持及技术面压制。"
+    },
+    "battle_plan": {
+      "sniper_points": {
+        "ideal_buy": "351.06元（MA10支撑位附近）",
+        "secondary_buy": "348.60元（价值区域下沿VAL附近）",
+        "stop_loss": "335.17元（跌破MA10支撑约5%）",
+        "take_profit": "371.56元（价值区域上沿VAH/前高附近）"
+      },
+      "position_strategy": {
+        "suggested_position": "建议仓位：3成",
+        "entry_plan": "当前位置观望，若回踩MA10企稳可试探性建仓，放量突破MA20后可右侧加仓。",
+        "risk_control": "严格执行止损，若收盘价有效跌破348元则需警惕趋势转空。"
+      },
+      "action_checklist": [
+        "❌ 检查项1：多头排列（MA10仍低于MA20）",
+        "✅ 检查项2：乖离率合理（-1.19% 处于安全区）",
+        "⚠️ 检查项3：量能配合（缩量上涨，动能不足）",
+        "⚠️ 检查项4：无重大利空（存在小额减持计划）",
+        "数据缺失 检查项5：筹码健康",
+        "⚠️ 检查项6：PE估值合理（45.58倍处于行业中高水平）"
+      ]
+    },
+    "phase_decision": {
+      "phase_context": {
+        "phase": "non_trading"
+      },
+      "action_window": "非交易日观察",
+      "immediate_action": "无盘中动作",
+      "watch_conditions": [
+        "观察开盘是否能站稳 MA10 (351.06)",
+        "关注成交量是否能有效放大至前一交易日的1.2倍以上"
+      ],
+      "next_check_time": "下一个交易日开盘前",
+      "confidence_reason": "当前处于非交易日，基于历史日线及最新资讯分析，技术面趋势尚未统一。",
+      "data_limitations": [
+        "美股筹码分布数据缺失",
+        "实时量比数据缺失"
+      ]
+    },
+    "signal_attribution": {
+      "technical_indicators": 45,
+      "news_sentiment": 65,
+      "fundamentals": 80,
+      "market_conditions": 50,
+      "strongest_bullish_signal": "机构分析师一致性“强力买入”评级",
+      "strongest_bearish_signal": "均线缠绕且处于 MA20 压力位下方"
+    }
+  },
+  "analysis_summary": "博通（AVGO）目前处于技术面的横盘震荡期。均线系统尚未形成标准的多头排列，价格在MA20附近承压，且成交量萎缩，暗示短期上攻动力有限。尽管基本面优秀（ROE 44%）且机构评级极高，但2026-09-24的减持公告可能对情绪产生微压。综上，建议保持观望，等待价格在支撑位企稳或带量突破压力区。",
+  "key_points": "均线缠绕震荡,缩量整理,机构看好长期,减持心理压力,压力位357.54",
+  "risk_warning": "若跌破348元关键支撑位，短期趋势可能转弱；注意美股半导体板块整体波动风险。",
+  "buy_reason": "当前价格回踩MA10附近，且乖离率为负，属于安全买点区间，但需量能确认。",
+  "trend_analysis": "弱势多头向震荡转化，股价在MA5与MA10之间运行，受阻于MA20。",
+  "short_term_outlook": "预计未来1-3日将在348-358元区间内维持窄幅震荡。",
+  "medium_term_outlook": "若能放量站稳360元，将开启新一轮上攻，挑战前高。",
+  "technical_analysis": "均线缠绕，RSI处于中性区间，价格位于成交密集区POC下方，面临一定套牢盘压力。",
+  "ma_analysis": "MA5(357) > MA10(351)，但MA10尚未穿过MA20(357)，趋势强度一般。",
+  "volume_analysis": "成交量连续萎缩，显示资金观望情绪浓厚，需补量才能形成有效突破。",
+  "pattern_analysis": "K线实体较小，上下影线交织，显示多空双方在当前价位分歧较大。",
+  "fundamental_analysis": "高ROE及稳健的现金流支撑长期价值，但45倍PE对增长率有较高要求。",
+  "sector_position": "半导体板块领军企业，在AI定制芯片领域具有垄断性优势。",
+  "company_highlights": "AI算力需求持续拉动定制化芯片业务，业绩增长确定性高。",
+  "news_summary": "近期机构目标价上调与基金会小额减持共存，整体舆情偏正向。",
+  "market_sentiment": "中性偏积极，机构资金长期锁仓意愿强。",
+  "hot_topics": "AI芯片,定制化硅片,半导体周期",
+  "search_performed": true,
+  "data_sources": "yfinance, storage.get_analysis_context, SEC EDGAR, MarketBeat"
+}

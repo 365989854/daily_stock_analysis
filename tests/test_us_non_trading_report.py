@@ -129,7 +129,8 @@ def test_turnover_rendering_in_both_report_paths(turnover, expected, use_templat
                   NotificationService().generate_dashboard_report([result]))
     assert output is not None
     assert f"换手率：{expected}" in output
-    assert f"| 210 | 0.77 | {expected} |" in output
+    assert "| $210.00 |" in output
+    assert "量比 0.77" in output
     assert "无法判断%" not in output
     assert "暂无数据%" not in output
 

@@ -49,7 +49,7 @@ def test_analyze_corrects_model_substitution_after_parsing(realtime):
     assert result.success, result.error_message
     volume = result.dashboard["data_perspective"]["volume_analysis"]
     assert volume["volume_ratio"] is None
-    assert "0.77" not in volume["volume_meaning"]
+    assert volume["volume_meaning"] == "较前一交易日成交量为 0.77 倍。"
     assert "追高意愿不足" not in volume["volume_meaning"]
     prompt = call.call_args.args[0]
     assert "较前一交易日成交量倍数（volume_change_ratio，非量比）：0.77倍" in prompt
@@ -78,7 +78,7 @@ def test_both_renderers_prefer_snapshot_over_wrong_model_field(use_template, quo
         output = render("markdown", [result]) if use_template else NotificationService().generate_dashboard_report([result])
     assert output is not None
     assert f"量比 {expected}" in output
-    assert f"| 210 | {expected} |" in output
+    assert "| $210.00 |" in output
     assert "量比 0.77" not in output
     assert "0.77" not in output
     if quote_ratio in (None, "N/A"):

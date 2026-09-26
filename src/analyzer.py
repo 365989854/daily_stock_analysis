@@ -915,6 +915,10 @@ def normalize_volume_ratio(result: "AnalysisResult", realtime_quote: Any) -> Non
     if not isinstance(getattr(result, "market_snapshot", None), dict):
         result.market_snapshot = {}
     result.market_snapshot["volume_ratio"] = value
+    result.market_snapshot["turnover_rate"] = (
+        quote.get("turnover_rate") if isinstance(realtime_quote, dict)
+        else getattr(realtime_quote, "turnover_rate", None)
+    )
     if not isinstance(getattr(result, "dashboard", None), dict):
         result.dashboard = {}
     perspective = result.dashboard.get("data_perspective")
@@ -4023,6 +4027,8 @@ class GeminiAnalyzer:
                     break
 
             normalize_volume_ratio(result, context.get("realtime"))
+            from src.services.report_validation import reconcile_report
+            reconcile_report(result)
             if should_persist_usage_telemetry(llm_usage):
                 persist_llm_usage(llm_usage, model_used, call_type="analysis", stock_code=code)
 
@@ -4582,6 +4588,10 @@ class GeminiAnalyzer:
 - 当数据缺失时，请使用中文直接说明“{no_data_text}，无法判断”。
 """
         
+        from data_provider.us_index_mapping import is_us_stock_code
+        if is_us_stock_code(code):
+            prompt = re.sub(r"([0-9.]+)\s*元", r"$\1", prompt)
+            prompt += "\n美股价格与操作点位使用美元 $，不得使用元。换手率缺失必须填 null，不得填 0。\n"
         return prompt
     
     def _format_volume(self, volume: Optional[float]) -> str:
@@ -4650,6 +4660,10 @@ class GeminiAnalyzer:
 
         snapshot = {
             "volume_ratio": realtime.get('volume_ratio'),
+            "turnover_rate": realtime.get('turnover_rate'),
+            "volume_change_ratio": context.get('volume_change_ratio'),
+            "chip_status": (context.get('analysis_context_pack', {}).get('blocks', {}).get('chip', {}).get('status')
+                            if isinstance(context.get('analysis_context_pack'), dict) else None),
             "date": context.get('date', '未知'),
             "close": self._format_price(close),
             "open": self._format_price(today.get('open')),

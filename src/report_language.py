@@ -61,17 +61,22 @@ def get_report_volume_analysis(result: Any, report_language: str = "zh") -> Dict
             volume["volume_status"] = ""
             volume["volume_meaning"] = ""
         volume["volume_ratio"] = snapshot["volume_ratio"]
+    if "turnover_rate" in snapshot:
+        volume["turnover_rate"] = snapshot["turnover_rate"]
     value = volume.get("volume_ratio")
     display = format_volume_ratio(value, report_language)
     if display == format_volume_ratio(None, report_language):
         volume["volume_ratio"] = None
         # A model's volume interpretation may be based on a substituted 0.77.
-        volume["volume_status"] = display
-        volume["volume_meaning"] = {
-            "zh": "实时量比暂无数据；较前一交易日成交量倍数不能代替量比或五日量比。",
-            "en": "Realtime volume ratio is unavailable; the volume multiple versus the previous trading day is not a five-day volume ratio.",
-            "ko": "실시간 거래량비 데이터 없음. 직전 거래일 대비 거래량 배수는 5일 거래량비가 아닙니다.",
-        }[normalize_report_language(report_language)]
+        volume["volume_status"] = ""
+        volume["volume_meaning"] = ""
+        previous = snapshot.get("volume_change_ratio")
+        if previous is not None and format_volume_ratio(previous) != format_volume_ratio(None):
+            volume["volume_meaning"] = {
+                "zh": f"较前一交易日成交量为 {float(previous):g} 倍。",
+                "en": f"Volume was {float(previous):g} times the previous trading day's volume.",
+                "ko": f"거래량은 직전 거래일의 {float(previous):g}배입니다.",
+            }[normalize_report_language(report_language)]
     return volume
 
 _REPORT_LANGUAGE_ALIASES = {

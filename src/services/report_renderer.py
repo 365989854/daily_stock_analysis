@@ -141,6 +141,9 @@ def render(
     )
     labels = get_report_labels(report_language)
 
+    from src.services.report_validation import report_display_result
+    results = [report_display_result(result) for result in results]
+
     # Build template context with pre-computed signal levels (sorted by score)
     sorted_results = sorted(results, key=lambda x: x.sentiment_score, reverse=True)
     sorted_enriched = []

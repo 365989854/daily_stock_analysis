@@ -917,6 +917,8 @@ class NotificationService(
         Returns:
             Markdown 格式的日报内容
         """
+        from src.services.report_validation import report_display_result
+        results = [report_display_result(result) for result in results]
         if report_date is None:
             report_date = datetime.now().strftime('%Y-%m-%d')
         report_language = self._get_report_language(results)
@@ -1272,6 +1274,8 @@ class NotificationService(
         Returns:
             Markdown 格式的决策仪表盘日报
         """
+        from src.services.report_validation import report_display_result
+        results = [report_display_result(result) for result in results]
         config = get_config()
         report_language = self._get_report_language(results)
         labels = get_report_labels(report_language)
@@ -1418,7 +1422,7 @@ class NotificationService(
                         "",
                     ])
 
-                self._append_market_snapshot(report_lines, result)
+                self._append_market_snapshot(report_lines, result, volume_section=True)
 
                 # ========== 数据透视 ==========
                 data_persp = dashboard.get('data_perspective', {}) if dashboard else {}
@@ -1464,11 +1468,13 @@ class NotificationService(
                     # 量能分析
                     if vol_data:
                         report_lines.extend([
-                            f"**{labels['volume_label']}**: {labels['volume_ratio_label']} {format_volume_ratio(vol_data.get('volume_ratio'), report_language)} ({vol_data.get('volume_status', '')}) | "
+                            f"**{labels['volume_label']}**: {labels['volume_ratio_label']} {format_volume_ratio(vol_data.get('volume_ratio'), report_language)} {('(' + vol_data['volume_status'] + ') ') if vol_data.get('volume_status') else ''}| "
                             f"{labels['turnover_rate_label']}：{format_turnover_rate(vol_data.get('turnover_rate'), report_language)}",
-                            f"💡 *{vol_data.get('volume_meaning', '')}*",
+                            *( [f"💡 *{vol_data['volume_meaning']}*"] if vol_data.get("volume_meaning") else [] ),
                             "",
                         ])
+                    if data_persp.get('chip_not_applicable'):
+                        report_lines.append(f"**{labels['chip_label']}**: {data_persp['chip_unavailable_reason']}")
                     # 筹码结构
                     if chip_data:
                         if is_chip_structure_unavailable(chip_data):
@@ -1533,7 +1539,7 @@ class NotificationService(
                         ])
                     else:
                         chip_unavailable_reason = get_chip_unavailable_reason(data_persp, report_language)
-                        if chip_unavailable_reason:
+                        if chip_unavailable_reason and not data_persp.get("chip_not_applicable"):
                             report_lines.extend([
                                 f"**{labels['chip_label']}**: {chip_unavailable_reason}",
                                 "",
@@ -1685,6 +1691,8 @@ class NotificationService(
         Returns:
             精简版决策仪表盘
         """
+        from src.services.report_validation import report_display_result
+        results = [report_display_result(result) for result in results]
         config = get_config()
         report_language = self._get_report_language(results)
         labels = get_report_labels(report_language)
@@ -1878,6 +1886,8 @@ class NotificationService(
         Returns:
             精简版 Markdown 内容
         """
+        from src.services.report_validation import report_display_result
+        results = [report_display_result(result) for result in results]
         report_date = datetime.now().strftime('%Y-%m-%d')
         report_language = self._get_report_language(results)
         labels = get_report_labels(report_language)
@@ -1958,6 +1968,8 @@ class NotificationService(
         Returns:
             Brief markdown content.
         """
+        from src.services.report_validation import report_display_result
+        results = [report_display_result(result) for result in results]
         if report_date is None:
             report_date = datetime.now().strftime('%Y-%m-%d')
         report_language = self._get_report_language(results)
@@ -2020,6 +2032,8 @@ class NotificationService(
         Returns:
             Markdown 格式的单股报告
         """
+        from src.services.report_validation import report_display_result
+        result = report_display_result(result)
         report_date = datetime.now().strftime('%Y-%m-%d %H:%M')
         report_language = self._get_report_language(result)
         labels = get_report_labels(report_language)
@@ -2191,7 +2205,7 @@ class NotificationService(
             return raw_source
         return mapping[normalize_report_language(language)]
 
-    def _append_market_snapshot(self, lines: List[str], result: AnalysisResult) -> None:
+    def _append_market_snapshot(self, lines: List[str], result: AnalysisResult, *, volume_section: bool = False) -> None:
         snapshot = getattr(result, 'market_snapshot', None)
         if not snapshot:
             return
@@ -2213,13 +2227,22 @@ class NotificationService(
 
         if "price" in snapshot:
             display_source = self._get_source_display_name(snapshot.get('source', 'N/A'), report_language)
-            lines.extend([
-                "",
-                f"| {labels['current_price_label']} | {labels['volume_ratio_label']} | {labels['turnover_rate_label']} | {labels['source_label']} |",
-                "|-------|------|--------|----------|",
-                f"| {snapshot.get('price', 'N/A')} | {format_volume_ratio(snapshot.get('volume_ratio'), report_language)} | "
-                f"{format_turnover_rate(snapshot.get('turnover_rate'), report_language)} | {display_source} |",
-            ])
+            has_volume_section = volume_section and bool((getattr(result, "dashboard", None) or {}).get("data_perspective", {}).get("volume_analysis"))
+            if has_volume_section:
+                lines.extend([
+                    "",
+                    f"| {labels['current_price_label']} | {labels['source_label']} |",
+                    "|-------|----------|",
+                    f"| {snapshot.get('price', 'N/A')} | {display_source} |",
+                ])
+            else:
+                lines.extend([
+                    "",
+                    f"| {labels['current_price_label']} | {labels['volume_ratio_label']} | {labels['turnover_rate_label']} | {labels['source_label']} |",
+                    "|-------|------|--------|----------|",
+                    f"| {snapshot.get('price', 'N/A')} | {format_volume_ratio(snapshot.get('volume_ratio'), report_language)} | "
+                    f"{format_turnover_rate(snapshot.get('turnover_rate'), report_language)} | {display_source} |",
+                ])
 
         lines.append("")
 

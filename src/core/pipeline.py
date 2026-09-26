@@ -957,6 +957,9 @@ class StockAnalysisPipeline:
                     result.market_structure_context = market_structure_context
                 result.market_phase_summary = market_phase_summary
                 result.analysis_context_pack_overview = analysis_context_pack_overview
+                result.market_snapshot["volume_change_ratio"] = enhanced_context.get("volume_change_ratio")
+                from src.services.report_validation import reconcile_report
+                reconcile_report(result)
                 self._refresh_decision_action_for_final_result(
                     result,
                     report_type=report_type.value,
@@ -1840,6 +1843,9 @@ class StockAnalysisPipeline:
                     result.market_structure_context = market_structure_context
                 result.market_phase_summary = market_phase_summary
                 result.analysis_context_pack_overview = analysis_context_pack_overview
+                result.market_snapshot["volume_change_ratio"] = (analysis_context or {}).get("volume_change_ratio")
+                from src.services.report_validation import reconcile_report
+                reconcile_report(result)
                 final_action = normalize_decision_action(getattr(result, "action", None))
                 if isinstance(result.dashboard, dict):
                     result.dashboard.pop("agent_disagreement_explanation", None)
