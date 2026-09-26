@@ -698,6 +698,10 @@ class AgentExecutor:
             skills_section=skills_section,
             language_section=_build_language_section(report_language),
         )
+        from data_provider.us_index_mapping import is_us_stock_code
+        if self.use_legacy_default_prompt and is_us_stock_code(stock_code):
+            from src.services.us_report_checklist import default_us_prompt
+            system_prompt = default_us_prompt(system_prompt)
 
         # Build tool declarations in OpenAI format (litellm handles all providers)
         tool_decls = self.tool_registry.to_openai_tools()
@@ -895,6 +899,13 @@ class AgentExecutor:
                 parts.append(analysis_context_pack_summary)
 
             # Inject pre-fetched context data to avoid redundant fetches
+            from data_provider.us_index_mapping import is_us_stock_code
+            if self.use_legacy_default_prompt and is_us_stock_code(context.get("stock_code", "")):
+                from src.services.us_report_checklist import NO_PROFILE
+                profile = context.get("volume_profile")
+                parts.append("\n[Volume Profile 历史成交量价格分布]\n" + (
+                    json.dumps(profile, ensure_ascii=False) if profile else NO_PROFILE
+                ))
             if context.get("realtime_quote"):
                 parts.append(f"\n[系统已获取的实时行情]\n{json.dumps(context['realtime_quote'], ensure_ascii=False)}")
             if context.get("chip_distribution"):

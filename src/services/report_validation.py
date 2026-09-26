@@ -98,6 +98,8 @@ def reconcile_report(result):
             value = getattr(result, key, None)
             if isinstance(value, str):
                 setattr(result, key, clean(value))
+    from src.services.us_report_checklist import restore_default_us_checklist
+    restore_default_us_checklist(result)
     return result
 
 
@@ -111,6 +113,8 @@ def report_display_result(result):
                   "poc", "vah", "val", "ideal_buy", "secondary_buy", "stop_loss", "take_profit"}
 
     def currency(value, key=""):
+        if key == "checklist_context":
+            return value  # Source facts and mode metadata are not presentation fields.
         if isinstance(value, dict):
             return {k: currency(v, k) for k, v in value.items()}
         if isinstance(value, list):

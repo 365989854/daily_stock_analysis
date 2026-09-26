@@ -28,7 +28,7 @@ def _response(correct):
     checklist = [line[2:] for line in REPORT.split("✅ 检查清单", 1)[1].split("🎯 信号归因分析", 1)[0].splitlines() if line.startswith("- ")]
     assert BAD_CHECK in checklist
     if correct:
-        checklist[checklist.index(BAD_CHECK)] = "✅ Volume Profile：" + POSITION
+        checklist[checklist.index(BAD_CHECK)] = "✅ 检查项5：成交量价格结构（Volume Profile）：" + POSITION
     profile_section = REPORT.split("Volume Profile（历史成交量价格分布）", 1)[1]
     values = next(line for line in profile_section.splitlines() if line.startswith("| $"))
     prices = [float(value.strip().removeprefix("$")) for value in values.strip("|").split("|")]
@@ -65,7 +65,7 @@ def test_real_report_model_response_to_report(correct, template, source):
         checks = response["dashboard"]["battle_plan"]["action_checklist"]
         bad_check = checks[4]
         if correct:
-            checks[4] = "✅ Volume Profile：" + POSITION
+            checks[4] = "✅ 检查项5：成交量价格结构（Volume Profile）：" + POSITION
     raw = json.dumps(response, ensure_ascii=False)
     context = {
         "code": "AVGO", "stock_name": "Broadcom", "date": "2026-09-25",
@@ -92,7 +92,9 @@ def test_real_report_model_response_to_report(correct, template, source):
     if correct:
         assert checklist == response["dashboard"]["battle_plan"]["action_checklist"]
     else:
-        assert checklist == [item for item in response["dashboard"]["battle_plan"]["action_checklist"] if item != bad_check]
+        assert len(checklist) == 6
+        assert checklist[:4] + checklist[5:] == [item for item in response["dashboard"]["battle_plan"]["action_checklist"] if item != bad_check]
+        assert "检查项5：成交量价格结构（Volume Profile）" in checklist[4]
     assert all("筹码健康" not in item and "套牢盘" not in item for item in checklist)
     before = deepcopy(result.to_dict())
     config = Config(stock_list=[], report_renderer_enabled=template)

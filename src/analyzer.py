@@ -2435,6 +2435,10 @@ class GeminiAnalyzer:
             ).replace(
                 "{guidelines_placeholder}", market_guidelines
             )
+            from data_provider.us_index_mapping import is_us_stock_code
+            if is_us_stock_code(stock_code):
+                from src.services.us_report_checklist import default_us_prompt
+                base_prompt = default_us_prompt(base_prompt)
         else:
             skills_section = ""
             if skill_instructions:
@@ -4027,6 +4031,10 @@ class GeminiAnalyzer:
                     break
 
             normalize_volume_ratio(result, context.get("realtime"))
+            from src.services.us_report_checklist import bind_default_us_checklist
+            bind_default_us_checklist(
+                result, legacy=use_legacy_default_prompt, volume_profile=context.get("volume_profile"),
+            )
             from src.services.report_validation import reconcile_report
             reconcile_report(result)
             if should_persist_usage_telemetry(llm_usage):
@@ -4085,6 +4093,8 @@ class GeminiAnalyzer:
         code = context.get('code', 'Unknown')
         report_language = normalize_report_language(report_language)
         _, _, use_legacy_default_prompt = self._get_skill_prompt_sections()
+        from data_provider.us_index_mapping import is_us_stock_code
+        default_us = use_legacy_default_prompt and is_us_stock_code(code)
         
         # 优先使用上下文中的股票名称（从 realtime_quote 获取）
         stock_name = context.get('stock_name', name)
@@ -4325,7 +4335,13 @@ class GeminiAnalyzer:
 """
 
         # 添加筹码分布数据或美股历史成交量价格分布
-        if 'chip' in context:
+        if default_us:
+            from src.services.us_report_checklist import CONTRACT, NO_PROFILE
+            profile = context.get("volume_profile")
+            prompt += "\n### Volume Profile（历史成交量价格分布）\n"
+            prompt += json.dumps(profile, ensure_ascii=False) if profile else NO_PROFILE
+            prompt += "\n" + CONTRACT
+        elif 'chip' in context:
             chip = context['chip']
             profit_ratio = chip.get('profit_ratio', 0)
             prompt += f"""
@@ -4524,13 +4540,17 @@ class GeminiAnalyzer:
 如果上方显示的股票名称为"股票{code}"或不正确，请在分析开头**明确输出该股票的正确中文全称**。
 """
         if use_legacy_default_prompt:
+            structure_question = (
+                "Volume Profile 的价值区位置及历史成交量密集区如何？仅依据已有数据回答。"
+                if default_us else "筹码结构是否健康？"
+            )
             prompt += f"""
 
 ### 重点关注（必须明确回答）：
 1. ❓ 是否满足 MA5>MA10>MA20 多头排列？
 2. ❓ 当前乖离率是否在安全范围内（<5%）？—— 超过5%必须标注"严禁追高"
 3. ❓ 量能是否配合（缩量回调/放量突破）？
-4. ❓ 筹码结构是否健康？
+4. ❓ {structure_question}
 5. ❓ 消息面有无重大利空？（减持、处罚、业绩变脸等）
 """
         else:

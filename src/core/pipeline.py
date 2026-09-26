@@ -1730,6 +1730,11 @@ class StockAnalysisPipeline:
             if result:
                 normalize_volume_ratio(result, realtime_quote)
                 normalize_chip_structure_availability(result, chip_data, volume_profile)
+                from src.services.us_report_checklist import bind_default_us_checklist
+                bind_default_us_checklist(
+                    result, legacy=getattr(executor, "use_legacy_default_prompt", False),
+                    volume_profile=volume_profile,
+                )
 
             # price_position fallback (same as non-agent path Step 7.7)
             if result:
