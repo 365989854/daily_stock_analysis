@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] 美股个股与指数的 YFinance 成功行情使用真实来源，仅实际切换行情源时标记 fallback；可选字段缺失不降低基础行情或完整技术面质量，保留未完成/估算盘中 K 线标记，A 股口径筹码在美股标为不适用且不扣分，不新增量比计算。
 - [新功能] Web/API runtime scheduler 硬超时后扫描已落库分析历史，**默认发送**部分完成通知（`DSA_TIMEOUT_PARTIAL_NOTIFY` 未设置或为 true；此前超时不推送已落库个股），并在 `last_error` 中记录 `completed/pending` 摘要；可用 `DSA_TIMEOUT_PARTIAL_NOTIFY=false` 关闭推送（Refs #2328）。
 - [测试] 修复股票名称解析冷启动超时并发测试的同步竞态：在放行后台抓取前确认两个等待者均已结束并返回空结果，避免 Docker 发布门禁偶发失败。
 - [文档] 将仓库内所有 SerpApi 链接统一更新为新的赞助转化追踪地址。

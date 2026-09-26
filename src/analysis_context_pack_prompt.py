@@ -316,6 +316,15 @@ def _data_limitation_lines(payload: Dict[str, Any], *, lang: str) -> List[str]:
 
     lines.extend(_phase_data_quality_constraint_lines(payload, lang=lang))
 
+    subject = payload.get("subject") or {}
+    chip = (payload.get("blocks") or {}).get("chip") or {}
+    if subject.get("market") == "us" and chip.get("status") == "not_supported":
+        lines.append(
+            "- US chip distribution: not applicable; do not lower confidence for absent A-share chip data."
+            if lang == "en" else
+            "- 美股筹码分布：不适用；缺少 A 股口径的筹码数据不得因此降低置信度。"
+        )
+
     if _has_core_degraded_block(payload):
         if lang == "en":
             lines.append(

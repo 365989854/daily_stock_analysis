@@ -261,8 +261,10 @@ def _build_technical_block(
     explicit_intraday_overlay = _has_explicit_intraday_overlay(
         artifacts.enhanced_context
     )
-    has_realtime_overlay = explicit_intraday_overlay or _has_realtime_overlay(
-        artifacts.enhanced_context
+    # US optional quote fields do not make completed technical data partial.
+    # Explicit unfinished/estimated bars remain degraded in every market.
+    has_realtime_overlay = explicit_intraday_overlay or (
+        artifacts.market != "us" and _has_realtime_overlay(artifacts.enhanced_context)
     )
     warnings = [_REALTIME_OVERLAY_WARNING] if has_realtime_overlay else []
     block_status = (
@@ -317,7 +319,8 @@ def _build_technical_block(
 def _build_chip_block(artifacts: PipelineAnalysisArtifacts) -> AnalysisContextBlock:
     chip = _to_dict(artifacts.chip_data)
     if not chip:
-        not_supported = bool((artifacts.metadata or {}).get("chip_not_supported"))
+        not_applicable = artifacts.market == "us"
+        not_supported = not_applicable or bool((artifacts.metadata or {}).get("chip_not_supported"))
         status = (
             ContextFieldStatus.NOT_SUPPORTED
             if not_supported
@@ -325,11 +328,12 @@ def _build_chip_block(artifacts: PipelineAnalysisArtifacts) -> AnalysisContextBl
         )
         return AnalysisContextBlock(
             status=status,
+            metadata={"not_applicable": True} if not_applicable else {},
             items={
                 "chip_distribution": AnalysisContextItem(
                     status=status,
                     missing_reason=(
-                        "chip_not_supported"
+                        "chip_not_applicable" if not_applicable else "chip_not_supported"
                         if not_supported
                         else "chip_distribution_missing"
                     ),
@@ -511,6 +515,8 @@ def _build_data_quality(
     for key, weight in _QUALITY_BLOCK_WEIGHTS.items():
         status = _quality_block_status(blocks, key)
         score = _STATUS_SCORES.get(status, _STATUS_SCORES[ContextFieldStatus.MISSING])
+        if key == "chip" and blocks[key].metadata.get("not_applicable"):
+            score = 100  # A-share chip distribution does not apply to US assets.
         block_scores[key] = score
         weighted_sum += score * weight
 

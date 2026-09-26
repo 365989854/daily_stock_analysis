@@ -102,6 +102,7 @@ class RealtimeSource(Enum):
     TENCENT = "tencent"             # 腾讯直连
     SINA = "sina"                   # 新浪直连
     STOOQ = "stooq"                 # Stooq 美股兜底
+    YFINANCE = "yfinance"           # Yahoo Finance
     LONGBRIDGE = "longbridge"       # 长桥（美股/港股兜底）
     FUTU = "futu"                   # 富途 OpenD（港股）
     FALLBACK = "fallback"           # 降级兜底

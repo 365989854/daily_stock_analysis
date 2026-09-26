@@ -662,6 +662,7 @@ class YfinanceFetcher(BaseFetcher):
                 code=symbol,
                 name=STOCK_NAME_MAP.get(symbol, ''),
                 source=RealtimeSource.STOOQ,
+                fallback_from="yfinance",
                 price=price,
                 change_pct=round(change_pct, 2) if change_pct is not None else None,
                 change_amount=round(change_amount, 4) if change_amount is not None else None,
@@ -763,10 +764,12 @@ class YfinanceFetcher(BaseFetcher):
             quote = UnifiedRealtimeQuote(
                 code=user_code,
                 name=index_name or user_code,
-                source=RealtimeSource.FALLBACK,
+                source=RealtimeSource.YFINANCE,
                 market="us",
                 currency=str(ticker_info.get("currency") or "").upper() or None,
-                data_quality="partial" if missing_fields else "ok",
+                data_quality="partial" if any(
+                    field in missing_fields for field in ("price", "prev_close", "volume")
+                ) else "ok",
                 missing_fields=missing_fields or None,
                 price=price,
                 change_pct=round(change_pct, 2) if change_pct is not None else None,
@@ -911,10 +914,13 @@ class YfinanceFetcher(BaseFetcher):
             quote = UnifiedRealtimeQuote(
                 code=symbol,
                 name=name,
-                source=RealtimeSource.FALLBACK,
+                source=RealtimeSource.YFINANCE if is_us_symbol else RealtimeSource.FALLBACK,
                 market=suffix_market or ("hk" if _is_hk_market(stock_code) else "us" if is_us_symbol else None),
                 currency=str(ticker_info.get("currency") or "").upper() or None,
-                data_quality="partial" if missing_fields else "ok",
+                data_quality="partial" if (
+                    any(field in missing_fields for field in ("price", "prev_close", "volume"))
+                    if is_us_symbol else bool(missing_fields)
+                ) else "ok",
                 missing_fields=missing_fields or None,
                 price=price,
                 change_pct=round(change_pct, 2) if change_pct is not None else None,

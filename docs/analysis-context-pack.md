@@ -310,6 +310,9 @@ P0 只记录历史消费面。完整 pack 不应默认公开到历史详情或�
 
 ## 兼容与安全边界
 
+- 美股个股（如 AAPL）和指数（如 SPX）的 YFinance 成功行情来源为 `yfinance`；同一 provider 内从 `fast_info` 改用 `history` 不代表切换行情源。只有首选行情源失败后切换到其他行情源才通过 `fallback_from` 标记 `quote: fallback`，包括 YFinance 失败后使用 Stooq。指数仍只使用 YFinance。
+- 美股缺少成交额、PE/PB、量比或换手率时，保留字段缺失信息，但不因此把完整基础行情或技术面标为 `partial`，也不补算量比。未完成或估算的盘中 K 线（`is_partial_bar`、`is_estimated`、`estimated_fields`）仍使技术面保持 `partial`，覆盖项保持 `estimated`；单独的实时来源标签不表示数据未完成。
+- 美股缺少 A 股口径筹码分布时，沿用兼容枚举 `not_supported`，原因为 `chip_not_applicable`，语义为“不适用”；筹码块不扣质量分，报告提示明确禁止因此降低置信度。其他市场的评分与标记规则不变。
 - `analysis_history.context_snapshot.enhanced_context.date` 是当前回测日期解析兼容点，P1/P2 不能在没有迁移的情况下破坏。
 - 完整 pack 不默认公开到历史、API、Web 或通知；P4/P5 只公开 `analysis_context_pack_overview` 低敏摘要、来源、fallback、stale、missing reason、block status count 和 `data_quality` 低敏评分。
 - pack、日志、历史快照和 API 响应不得记录 API key、token、cookie、完整 webhook URL、邮箱密码、私有环境变量或其他密钥。
