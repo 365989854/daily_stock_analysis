@@ -16,11 +16,11 @@ from src.services.us_report_checklist import NO_PROFILE, TITLES
 
 RAW = json.loads((Path(__file__).parent / "fixtures/avgo_checklist_model_response.json").read_text(encoding="utf-8"))
 PROFILE = RAW["dashboard"]["data_perspective"]["volume_profile"]
-CORRECT_FIFTH = "✅ 检查项5：成交量价格结构（Volume Profile）：价格位于价值区内、POC下方，POC $364.86 为历史最大成交密集价"
+CORRECT_FIFTH = "⚠️ 检查项5：成交量价格结构（Volume Profile）：价格位于价值区内、POC下方，POC $364.86 为历史最大成交密集价"
 
 
-def _analyze(*, profile, legacy=True, correct=False, code="AVGO"):
-    payload = deepcopy(RAW)
+def _analyze(*, profile, legacy=True, correct=False, code="AVGO", payload=None, source=None):
+    payload = deepcopy(RAW if payload is None else payload)
     if correct:
         payload["dashboard"]["battle_plan"]["action_checklist"][4] = CORRECT_FIFTH
     if not legacy:
@@ -31,6 +31,8 @@ def _analyze(*, profile, legacy=True, correct=False, code="AVGO"):
         "volume_change_ratio": 0.77, "volume_profile": profile,
         "analysis_context_pack": {"blocks": {"chip": {"status": "not_supported"}}},
     }
+    if source:
+        context.update(deepcopy(source))
     analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
     analyzer._config_override = Config(stock_list=[], gemini_request_delay=0, report_integrity_enabled=False)
     from src.agent.skills.defaults import CORE_TRADING_SKILL_POLICY_ZH

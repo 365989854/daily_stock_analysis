@@ -4034,6 +4034,7 @@ class GeminiAnalyzer:
             from src.services.us_report_checklist import bind_default_us_checklist
             bind_default_us_checklist(
                 result, legacy=use_legacy_default_prompt, volume_profile=context.get("volume_profile"),
+                source_context=context,
             )
             from src.services.report_validation import reconcile_report
             reconcile_report(result)

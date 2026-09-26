@@ -1734,6 +1734,7 @@ class StockAnalysisPipeline:
                 bind_default_us_checklist(
                     result, legacy=getattr(executor, "use_legacy_default_prompt", False),
                     volume_profile=volume_profile,
+                    source_context=analysis_context,
                 )
 
             # price_position fallback (same as non-agent path Step 7.7)
