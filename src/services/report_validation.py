@@ -55,22 +55,41 @@ def reconcile_report(result):
         }[normalize_report_language(getattr(result, "report_language", "zh"))]
         perspective["chip_not_applicable"] = True
 
+        def clean_clause(match):
+            clause = match[0]
+            # Chip health is inapplicable even when the model did not say
+            # "missing". Keep the explicit applicability explanation.
+            if "筹码" in clause and not re.search(r"不适用|不支持", clause):
+                return ""
+            for claim in re.finditer(r"套牢盘|主力成本|(?:真实)?(?:投资者)?持仓成本", clause):
+                # Preserve disclaimers such as '不是主力成本' / '不代表真实
+                # 投资者持仓成本', but not an affirmative ownership inference.
+                prefix = re.split(r"但|然而|而是|却", clause[:claim.start()])[-1]
+                if not re.search(
+                    r"不是|并非|不代表|不等于|(?:不能|不应|无法)(?:据此)?(?:直接)?"
+                    r"(?:推导|推断|确定|判断|视为|理解为|当作|作为|代表|等同)", prefix,
+                ):
+                    return ""
+            return clause
+
         def clean(value):
             if isinstance(value, dict):
                 return {k: clean(v) for k, v in value.items()}
             if isinstance(value, list):
                 return [v for item in value if not isinstance(v := clean(item), str) or v.strip()]
             if isinstance(value, str):
-                # Remove only the invalid clause; retain unrelated limitations.
+                # Keep normal VP price/distribution clauses and all numeric data.
                 return re.sub(
-                    r"[^，,；;。]*(?:筹码)[^，,；;。]*[，,；;。]?",
-                    lambda match: "" if any(word in match[0] for word in ("缺失", "缺乏", "无法", "不足")) else match[0],
+                    r"[^，,；;。\n]+[，,；;。]?",
+                    clean_clause,
                     value,
                 )
             return value
 
         result.dashboard = clean(dashboard)
-        for key in ("analysis_summary", "risk_warning", "guardrail_reason"):
+        for key in ("analysis_summary", "risk_warning", "guardrail_reason", "technical_analysis",
+                    "trend_analysis", "ma_analysis", "volume_analysis", "pattern_analysis", "short_term_outlook",
+                    "medium_term_outlook", "key_points", "buy_reason"):
             value = getattr(result, key, None)
             if isinstance(value, str):
                 setattr(result, key, clean(value))
