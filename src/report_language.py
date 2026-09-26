@@ -4,11 +4,75 @@
 from __future__ import annotations
 
 import re
+import math
 from typing import Any, Dict, Optional
 
 from src.schemas.decision_scale import signal_key_for_score
 
 SUPPORTED_REPORT_LANGUAGES = ("zh", "en", "ko")
+
+
+def format_turnover_rate(value: Any, report_language: str = "zh") -> str:
+    """Render a numeric percentage; model missing-data text is never a number."""
+    missing = {"zh": "暂无数据", "en": "No data", "ko": "데이터 없음"}[
+        normalize_report_language(report_language)
+    ]
+    if value is None or isinstance(value, bool):
+        return missing
+    text = str(value).strip().removesuffix("%").strip()
+    try:
+        number = float(text)
+    except (TypeError, ValueError):
+        return missing
+    return f"{number:g}%" if math.isfinite(number) else missing
+
+
+def format_volume_ratio(value: Any, report_language: str = "zh") -> str:
+    """Format the supplied ratio only; never substitute a daily volume change."""
+    if value is not None and not isinstance(value, bool):
+        try:
+            number = float(value)
+            if math.isfinite(number) and number >= 0:
+                return f"{number:g}"
+        except (TypeError, ValueError):
+            pass
+    return {"zh": "暂无数据", "en": "No data", "ko": "데이터 없음"}[
+        normalize_report_language(report_language)
+    ]
+
+
+def get_report_volume_analysis(result: Any, report_language: str = "zh") -> Dict[str, Any]:
+    """Use the factual snapshot over model output, including explicit absence.
+
+    Old reports without a snapshot ratio retain their original numeric field.
+    This returns a copy so rendering never rewrites stored analysis results.
+    """
+    dashboard = getattr(result, "dashboard", None) or {}
+    perspective = dashboard.get("data_perspective") or {}
+    volume = dict(perspective.get("volume_analysis") or {})
+    snapshot = getattr(result, "market_snapshot", None) or {}
+    if not volume and "volume_ratio" not in snapshot:
+        return {}
+    if "volume_ratio" in snapshot:
+        if format_volume_ratio(volume.get("volume_ratio"), report_language) != format_volume_ratio(
+            snapshot["volume_ratio"], report_language
+        ):
+            # Do not retain an interpretation built around the rejected value.
+            volume["volume_status"] = ""
+            volume["volume_meaning"] = ""
+        volume["volume_ratio"] = snapshot["volume_ratio"]
+    value = volume.get("volume_ratio")
+    display = format_volume_ratio(value, report_language)
+    if display == format_volume_ratio(None, report_language):
+        volume["volume_ratio"] = None
+        # A model's volume interpretation may be based on a substituted 0.77.
+        volume["volume_status"] = display
+        volume["volume_meaning"] = {
+            "zh": "实时量比暂无数据；较前一交易日成交量倍数不能代替量比或五日量比。",
+            "en": "Realtime volume ratio is unavailable; the volume multiple versus the previous trading day is not a five-day volume ratio.",
+            "ko": "실시간 거래량비 데이터 없음. 직전 거래일 대비 거래량 배수는 5일 거래량비가 아닙니다.",
+        }[normalize_report_language(report_language)]
+    return volume
 
 _REPORT_LANGUAGE_ALIASES = {
     "zh-cn": "zh",

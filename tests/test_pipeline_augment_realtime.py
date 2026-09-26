@@ -35,8 +35,8 @@ class AugmentRealtimeMarketDateTestCase(unittest.TestCase):
         self, _mock_market, mock_now, _mock_open
     ):
         """When server is UTC and US market date differs, virtual row uses market date."""
-        # Server UTC: 2026-03-28 01:00 => US ET: 2026-03-27 21:00
-        us_market_now = datetime(2026, 3, 27, 21, 0)
+        # Hong Kong Saturday overlaps the US Friday regular session.
+        us_market_now = datetime.fromisoformat("2026-03-27T14:00:00-04:00")
         mock_now.return_value = us_market_now
 
         df = _make_df([(date(2026, 3, 26), 150.0)])
@@ -58,7 +58,7 @@ class AugmentRealtimeMarketDateTestCase(unittest.TestCase):
         self, _mock_market, mock_now, _mock_open
     ):
         """When latest bar date >= market_today, update in place instead of appending."""
-        mock_now.return_value = datetime(2026, 3, 27, 17, 0)
+        mock_now.return_value = datetime.fromisoformat("2026-03-27T14:00:00-04:00")
 
         df = _make_df([(date(2026, 3, 26), 150.0), (date(2026, 3, 27), 152.0)])
         quote = SimpleNamespace(price=155.0, open_price=151.0, high=156.0, low=149.0, volume=200, amount=None, change_pct=3.0, pre_close=None)

@@ -17,6 +17,9 @@ from src.analyzer import AnalysisResult
 from src.config import get_config
 from src.market_phase_summary import format_public_market_status_line, format_public_phase_pack_excerpt
 from src.report_language import (
+    format_volume_ratio,
+    get_report_volume_analysis,
+    format_turnover_rate,
     get_localized_stock_name,
     get_report_labels,
     get_signal_level,
@@ -232,6 +235,9 @@ def render(
         "phase_pack_excerpt": phase_pack_excerpt,
         "history_by_code": {},
         "get_chip_unavailable_reason": get_chip_unavailable_reason,
+        "format_turnover_rate": format_turnover_rate,
+        "format_volume_ratio": format_volume_ratio,
+        "get_report_volume_analysis": get_report_volume_analysis,
         "is_chip_structure_unavailable": is_chip_structure_unavailable,
         "localize_operation_advice": localize_operation_advice,
         "localize_action_label": localize_action_label,

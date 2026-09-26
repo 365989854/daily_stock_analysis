@@ -35,6 +35,7 @@ from src.analyzer import (
     AnalysisResult,
     fill_price_position_if_needed,
     normalize_chip_structure_availability,
+    normalize_volume_ratio,
     populate_decision_action_fields,
     stabilize_decision_with_structure,
 )
@@ -671,7 +672,8 @@ class StockAnalysisPipeline:
                     # Issue #234: Augment with realtime for intraday MA calculation
                     if self.config.enable_realtime_quote and realtime_quote:
                         df = self._augment_historical_with_realtime(
-                            df, realtime_quote, code, market=market
+                            df, realtime_quote, code, market=market,
+                            market_phase_context=market_phase_context_dict,
                         )
                     trend_result = self.trend_analyzer.analyze(df, code)
                     logger.info(f"{stock_name}({code}) 趋势分析: {trend_result.trend_status.value}, "
@@ -920,6 +922,7 @@ class StockAnalysisPipeline:
 
             # Step 7.6: chip_structure fallback (Issue #589) and unavailable collapse
             if result:
+                normalize_volume_ratio(result, realtime_quote)
                 normalize_chip_structure_availability(result, chip_data, volume_profile)
 
             # Step 7.7: price_position fallback
@@ -1094,6 +1097,12 @@ class StockAnalysisPipeline:
             }
             # 移除 None 值以减少上下文大小
             enhanced['realtime'] = {k: v for k, v in enhanced['realtime'].items() if v is not None}
+            if get_market_for_stock(context.get('code', '')) == "us" and volume_ratio is not None:
+                # A scalar may have been supplemented by another provider; it
+                # carries neither field-level provenance nor session boundaries.
+                enhanced['realtime']['volume_ratio_desc'] = (
+                    '量比来源字段的统计周期未确认，不作为当前盘中缩量或追高意愿的证据'
+                )
         
         # 添加筹码分布
         if chip_data:
@@ -1124,7 +1133,10 @@ class StockAnalysisPipeline:
 
         # Issue #234：盘中分析使用实时 OHLC 与趋势 MA 覆盖 today。
         # 防护条件：trend_result.ma5 > 0 表示 MA 计算已成功且数据量充足。
-        if realtime_quote and trend_result and trend_result.ma5 > 0:
+        if (realtime_quote and trend_result and trend_result.ma5 > 0
+                and self._allow_realtime_technical_overlay(
+                    get_market_for_stock(context.get('code', '')), market_phase_context
+                )):
             price = getattr(realtime_quote, 'price', None)
             if price is not None and price > 0:
                 yesterday_close = None
@@ -1713,6 +1725,7 @@ class StockAnalysisPipeline:
                     )
             # chip_structure fallback (Issue #589), before save_analysis_history
             if result:
+                normalize_volume_ratio(result, realtime_quote)
                 normalize_chip_structure_availability(result, chip_data, volume_profile)
 
             # price_position fallback (same as non-agent path Step 7.7)
@@ -2759,12 +2772,31 @@ class StockAnalysisPipeline:
         else:
             return "震荡整理 ↔️"
 
+    def _allow_realtime_technical_overlay(
+        self, market: Optional[str], phase_context: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Only build US synthetic bars during the exchange's regular session.
+
+        Re-infer the phase from the captured instant: a requested analysis phase
+        must not override the actual exchange calendar or create a holiday bar.
+        Existing partial/estimated input bars are left untouched.
+        """
+        if market != "us":
+            return True
+        if not getattr(self.config, 'enable_realtime_technical_indicators', True):
+            return False
+        market_time = (phase_context or {}).get("market_local_time")
+        current_time = datetime.fromisoformat(market_time) if market_time else get_market_now(market)
+        phase = build_market_phase_context(market=market, current_time=current_time)
+        return phase.is_market_open_now is True and phase.is_partial_bar is True
+
     def _augment_historical_with_realtime(
         self,
         df: pd.DataFrame,
         realtime_quote: Any,
         code: str,
         market: Optional[str] = None,
+        market_phase_context: Optional[Dict[str, Any]] = None,
     ) -> pd.DataFrame:
         """
         使用当日实时行情补齐历史 OHLCV，用于盘中 MA 计算。
@@ -2786,6 +2818,8 @@ class StockAnalysisPipeline:
             return df
         if market is None:
             market = get_market_for_stock(code)
+        if not self._allow_realtime_technical_overlay(market, market_phase_context):
+            return df
         market_today = get_market_now(market).date()
         if market and not is_market_open(market, market_today):
             return df

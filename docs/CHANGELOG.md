@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] 报告量比以原始实时行情为准，缺失时显示“暂无数据”，纠正模型将“较前一交易日成交量倍数”误填为量比的情况；同步普通分析、Agent 与两种报告渲染路径，不新增或修改成交量计算公式。
+- [修复] 美股报告在非交易日、盘前与盘后保留完整日线，按交易所时区和交易日历仅在常规盘中构造实时估算 K 线，保留真实 partial 标记；统一换手率缺失显示为“暂无数据”，量比周期不明时禁止据此推导当前盘中缩量或追高意愿，不改变量比公式。
 - [修复] 美股个股与指数的 YFinance 成功行情使用真实来源，仅实际切换行情源时标记 fallback；可选字段缺失不降低基础行情或完整技术面质量，保留未完成/估算盘中 K 线标记，A 股口径筹码在美股标为不适用且不扣分，不新增量比计算。
 - [新功能] Web/API runtime scheduler 硬超时后扫描已落库分析历史，**默认发送**部分完成通知（`DSA_TIMEOUT_PARTIAL_NOTIFY` 未设置或为 true；此前超时不推送已落库个股），并在 `last_error` 中记录 `completed/pending` 摘要；可用 `DSA_TIMEOUT_PARTIAL_NOTIFY=false` 关闭推送（Refs #2328）。
 - [测试] 修复股票名称解析冷启动超时并发测试的同步竞态：在放行后台抓取前确认两个等待者均已结束并返回空结果，避免 Docker 发布门禁偶发失败。

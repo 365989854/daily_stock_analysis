@@ -102,9 +102,9 @@
 | {{ labels.resistance_level_label }} | {{ price_data.get('resistance_level', 'N/A') }} |
 {% endif %}
 
-{% set vol_data = data_persp.get('volume_analysis', {}) %}
+{% set vol_data = get_report_volume_analysis(result, report_language) %}
 {% if vol_data %}
-**{{ labels.volume_label }}**: {{ labels.volume_ratio_label }} {{ vol_data.get('volume_ratio', 'N/A') }} ({{ vol_data.get('volume_status', '') }}) | {{ labels.turnover_rate_label }} {{ vol_data.get('turnover_rate', 'N/A') }}%
+**{{ labels.volume_label }}**: {{ labels.volume_ratio_label }} {{ format_volume_ratio(vol_data.get('volume_ratio'), report_language) }} ({{ vol_data.get('volume_status', '') }}) | {{ labels.turnover_rate_label }}：{{ format_turnover_rate(vol_data.get('turnover_rate'), report_language) }}
 💡 *{{ vol_data.get('volume_meaning', '') }}*
 {% endif %}
 

@@ -38,6 +38,9 @@ from src.notification_noise import (
     release_notification_noise,
 )
 from src.report_language import (
+    format_volume_ratio,
+    get_report_volume_analysis,
+    format_turnover_rate,
     get_localized_stock_name,
     get_report_labels,
     get_signal_level,
@@ -1422,7 +1425,7 @@ class NotificationService(
                 if data_persp:
                     trend_data = data_persp.get('trend_status', {})
                     price_data = data_persp.get('price_position', {})
-                    vol_data = data_persp.get('volume_analysis', {})
+                    vol_data = get_report_volume_analysis(result, report_language)
                     chip_data = data_persp.get('chip_structure', {})
                     volume_profile = data_persp.get('volume_profile', {})
 
@@ -1461,8 +1464,8 @@ class NotificationService(
                     # 量能分析
                     if vol_data:
                         report_lines.extend([
-                            f"**{labels['volume_label']}**: {labels['volume_ratio_label']} {vol_data.get('volume_ratio', 'N/A')} ({vol_data.get('volume_status', '')}) | "
-                            f"{labels['turnover_rate_label']} {vol_data.get('turnover_rate', 'N/A')}%",
+                            f"**{labels['volume_label']}**: {labels['volume_ratio_label']} {format_volume_ratio(vol_data.get('volume_ratio'), report_language)} ({vol_data.get('volume_status', '')}) | "
+                            f"{labels['turnover_rate_label']}：{format_turnover_rate(vol_data.get('turnover_rate'), report_language)}",
                             f"💡 *{vol_data.get('volume_meaning', '')}*",
                             "",
                         ])
@@ -2214,8 +2217,8 @@ class NotificationService(
                 "",
                 f"| {labels['current_price_label']} | {labels['volume_ratio_label']} | {labels['turnover_rate_label']} | {labels['source_label']} |",
                 "|-------|------|--------|----------|",
-                f"| {snapshot.get('price', 'N/A')} | {snapshot.get('volume_ratio', 'N/A')} | "
-                f"{snapshot.get('turnover_rate', 'N/A')} | {display_source} |",
+                f"| {snapshot.get('price', 'N/A')} | {format_volume_ratio(snapshot.get('volume_ratio'), report_language)} | "
+                f"{format_turnover_rate(snapshot.get('turnover_rate'), report_language)} | {display_source} |",
             ])
 
         lines.append("")

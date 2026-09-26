@@ -82,6 +82,8 @@ from src.llm.response_content import strip_leading_think_wrapper
 from src.storage import persist_llm_usage
 from src.data.stock_mapping import STOCK_NAME_MAP
 from src.report_language import (
+    get_report_volume_analysis,
+    format_turnover_rate,
     get_signal_level,
     get_no_data_text,
     get_placeholder_text,
@@ -902,6 +904,24 @@ def _mark_chip_structure_unavailable(result: "AnalysisResult", language: str) ->
         return
     data_perspective["chip_structure"] = {}
     data_perspective["chip_unavailable_reason"] = get_chip_unavailable_text(language)
+
+
+def normalize_volume_ratio(result: "AnalysisResult", realtime_quote: Any) -> None:
+    """Bind the report ratio to the quote, never to LLM-derived daily comparisons."""
+    quote = realtime_quote if isinstance(realtime_quote, dict) else {}
+    value = quote.get("volume_ratio") if isinstance(realtime_quote, dict) else getattr(
+        realtime_quote, "volume_ratio", None
+    )
+    if not isinstance(getattr(result, "market_snapshot", None), dict):
+        result.market_snapshot = {}
+    result.market_snapshot["volume_ratio"] = value
+    if not isinstance(getattr(result, "dashboard", None), dict):
+        result.dashboard = {}
+    perspective = result.dashboard.get("data_perspective")
+    if not isinstance(perspective, dict):
+        perspective = {}
+        result.dashboard["data_perspective"] = perspective
+    perspective["volume_analysis"] = get_report_volume_analysis(result, getattr(result, "report_language", "zh"))
 
 
 def normalize_chip_structure_availability(
@@ -4002,6 +4022,7 @@ class GeminiAnalyzer:
                     )
                     break
 
+            normalize_volume_ratio(result, context.get("realtime"))
             if should_persist_usage_telemetry(llm_usage):
                 persist_llm_usage(llm_usage, model_used, call_type="analysis", stock_code=code)
 
@@ -4150,12 +4171,19 @@ class GeminiAnalyzer:
 |------|------|------|
 | 当前价格 | {rt.get('price', 'N/A')} 元 | |
 | **量比** | **{rt.get('volume_ratio', 'N/A')}** | {rt.get('volume_ratio_desc', '')} |
-| **换手率** | **{rt.get('turnover_rate', 'N/A')}%** | |
+| **换手率** | **{format_turnover_rate(rt.get('turnover_rate'), report_language)}** | |
 | 市盈率(动态) | {rt.get('pe_ratio', 'N/A')} | |
 | 市净率 | {rt.get('pb_ratio', 'N/A')} | |
 | 总市值 | {self._format_amount(rt.get('total_mv'))} | |
 | 流通市值 | {self._format_amount(rt.get('circ_mv'))} | |
 | 60日涨跌幅 | {rt.get('change_60d', 'N/A')}% | 中期表现 |
+"""
+
+        prompt += """
+### 量比字段约束
+- volume_analysis.volume_ratio 只能取实时行情提供的 volume_ratio；缺失时填 null，展示为“暂无数据”。
+- volume_change_ratio 是“较前一交易日成交量倍数”，不是实时量比，也不是五日量比；不得填入 volume_analysis.volume_ratio。
+- 如引用该比较值，必须明确标为“较前一交易日成交量倍数”，不得仅凭它推导当前盘中缩量、追高意愿不足或易回落。
 """
 
         # 添加财报与分红（价值投资口径）
@@ -4407,7 +4435,7 @@ class GeminiAnalyzer:
             volume_change = context.get('volume_change_ratio', 'N/A')
             prompt += f"""
 ### 量价变化
-- 成交量较昨日变化：{volume_change}倍
+- 较前一交易日成交量倍数（volume_change_ratio，非量比）：{volume_change}倍
 - 价格较昨日变化：{context.get('price_change_ratio', 'N/A')}%
 """
             parsed_volume_change = _safe_float(volume_change, default=math.nan)
@@ -4621,6 +4649,7 @@ class GeminiAnalyzer:
                 change_amount = None
 
         snapshot = {
+            "volume_ratio": realtime.get('volume_ratio'),
             "date": context.get('date', '未知'),
             "close": self._format_price(close),
             "open": self._format_price(today.get('open')),
@@ -4637,8 +4666,8 @@ class GeminiAnalyzer:
         if realtime:
             snapshot.update({
                 "price": self._format_price(realtime.get('price')),
-                "volume_ratio": realtime.get('volume_ratio', 'N/A'),
-                "turnover_rate": self._format_percent(realtime.get('turnover_rate')),
+                "volume_ratio": realtime.get('volume_ratio'),
+                "turnover_rate": format_turnover_rate(realtime.get('turnover_rate'), context.get('report_language', 'zh')),
                 "source": getattr(realtime.get('source'), 'value', realtime.get('source', 'N/A')),
             })
 

@@ -72,6 +72,14 @@ def _format_zh(ctx: Dict[str, Any], phase: str) -> str:
     lines = ["", "## 市场阶段上下文", f"- 当前市场阶段：{label}"]
     lines.extend(_metadata_lines_zh(ctx))
     lines.append(f"- 阶段约束：{_phase_rule_zh(ctx, phase)}")
+    if ctx.get("market") == "us":
+        lines.append(
+            "- 美股量比口径：量比可能是日线成交量与历史日均量的比值，不能默认视为同一时刻的盘中量比。"
+            "只有输入明确给出来源、分子和分母的日期与交易时段时，才可注明该周期作比较；"
+            "否则须说明统计周期未确认，不得仅凭该数值推导当前盘中缩量、追高意愿不足或易回落。"
+            " volume_analysis.volume_ratio 只能取实时行情的 volume_ratio，缺失填 null（暂无数据）；"
+            "volume_change_ratio 只能标为“较前一交易日成交量倍数”，不得作为量比或五日量比。"
+        )
 
     warning_text = _warning_text(ctx.get("warnings"), lang="zh")
     if warning_text:
@@ -85,6 +93,17 @@ def _format_en(ctx: Dict[str, Any], phase: str) -> str:
     lines = ["", "## Market Phase Context", f"- Current market phase: {label}"]
     lines.extend(_metadata_lines_en(ctx))
     lines.append(f"- Phase constraint: {_phase_rule_en(ctx, phase)}")
+    if ctx.get("market") == "us":
+        lines.append(
+            "- US volume ratio: it may compare daily volume with historical daily averages, "
+            "not time-matched intraday volume. State the period only when the input identifies "
+            "the source and the numerator/denominator dates and trading sessions. Otherwise "
+            "disclose that the period is unconfirmed; do not infer current intraday volume "
+            "contraction, weak buying interest, or a likely pullback from this scalar alone."
+            " Populate volume_analysis.volume_ratio only from the realtime quote's volume_ratio; "
+            "use null when absent. Label volume_change_ratio only as the volume multiple versus "
+            "the previous trading day, never as a realtime or five-day volume ratio."
+        )
 
     warning_text = _warning_text(ctx.get("warnings"), lang="en")
     if warning_text:
