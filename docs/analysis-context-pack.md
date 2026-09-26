@@ -318,6 +318,7 @@ P0 只记录历史消费面。完整 pack 不应默认公开到历史详情或�
 - `market_snapshot.volume_change_ratio` 只保存已有的前一交易日成交量比较值，不新增计算。量比缺失时可展示“较前一交易日成交量为 0.77 倍”，不能填入实时或五日量比，也不能据此推导盘中追高意愿。没有原始比较值的历史记录不从模型文字反推数值。
 - 美股 `chip=not_supported` 时，报告校验清除模型生成的筹码缺失限制和检查项，保留“不适用”说明及其他真实风险；即使展示 Volume Profile，也保留该说明。美元价格和操作点位在展示副本中统一使用 `$`，不修改原始模型响应或数值字段。Actions 第 59 次运行的模型响应作为测试样例，覆盖原始、正确及故意错误输出。
 - 上述筹码校验也清除“筹码健康”检查，以及把 Volume Profile 解读为套牢盘、主力成本或真实投资者持仓成本的断言；正常 POC/VAH/VAL、密集区、价格位置分析和否定此类持仓推断的口径说明保持不变。`tests/fixtures/avgo_report_volume_profile.txt` 保存用户提供的真实报告；测试从报告重建相关模型字段，覆盖解析、校验及两种报告渲染路径，不将渲染后的报告冒充原始模型 JSON。
+- `action_checklist` 以单个列表项为语义边界：任一子句违反上述筹码约束时删除完整项，不保留后半句或括号尾部，不重新编号或补造检查项。其他合法检查项原文保留，普通 Volume Profile 描述仍按原有规则处理。新增 `avgo_checklist_model_response.json`（Actions #61、提交 `ca8e2a67` 的原始响应）及 `avgo_report_checklist_fragment.txt`（用户提供的实际失败报告），覆盖完整项清理与相邻项保留。
 - 普通分析与 Agent 的美股阶段提示均要求核实量比分子、分母的日期及交易时段；只有原始输入足以证明时才注明具体周期，否则说明“统计周期未确认”，不单凭该数值推导当前盘中缩量、追高意愿不足或易回落。追溯某次报告需使用该次 `context_snapshot`、原始日线和运行日志；仅有报告中的小数不能还原来源和交易时段。
 - 美股个股（如 AAPL）和指数（如 SPX）的 YFinance 成功行情来源为 `yfinance`；同一 provider 内从 `fast_info` 改用 `history` 不代表切换行情源。只有首选行情源失败后切换到其他行情源才通过 `fallback_from` 标记 `quote: fallback`，包括 YFinance 失败后使用 Stooq。指数仍只使用 YFinance。
 - 美股缺少成交额、PE/PB、量比或换手率时，保留字段缺失信息，但不因此把完整基础行情或技术面标为 `partial`，也不补算量比。未完成或估算的盘中 K 线（`is_partial_bar`、`is_estimated`、`estimated_fields`）仍使技术面保持 `partial`，覆盖项保持 `estimated`；单独的实时来源标签不表示数据未完成。

@@ -54,8 +54,18 @@ def _response(correct):
 
 @pytest.mark.parametrize("correct", [True, False])
 @pytest.mark.parametrize("template", [True, False])
-def test_real_report_model_response_to_report(correct, template):
+@pytest.mark.parametrize("source", ["rendered_report", "actions_61_raw_response"])
+def test_real_report_model_response_to_report(correct, template, source):
     response = _response(correct)
+    bad_check = BAD_CHECK
+    if source == "actions_61_raw_response":
+        # Actual raw response from run 36227518230 on ca8e2a67, artifact
+        # analysis-reports-61/debug log. Keep it distinct from the rendered fixture.
+        response = json.loads((Path(__file__).parent / "fixtures/avgo_checklist_model_response.json").read_text(encoding="utf-8"))
+        checks = response["dashboard"]["battle_plan"]["action_checklist"]
+        bad_check = checks[4]
+        if correct:
+            checks[4] = "✅ Volume Profile：" + POSITION
     raw = json.dumps(response, ensure_ascii=False)
     context = {
         "code": "AVGO", "stock_name": "Broadcom", "date": "2026-09-25",
@@ -82,7 +92,7 @@ def test_real_report_model_response_to_report(correct, template):
     if correct:
         assert checklist == response["dashboard"]["battle_plan"]["action_checklist"]
     else:
-        assert checklist == [item for item in response["dashboard"]["battle_plan"]["action_checklist"] if item != BAD_CHECK]
+        assert checklist == [item for item in response["dashboard"]["battle_plan"]["action_checklist"] if item != bad_check]
     assert all("筹码健康" not in item and "套牢盘" not in item for item in checklist)
     before = deepcopy(result.to_dict())
     config = Config(stock_list=[], report_renderer_enabled=template)
@@ -98,6 +108,12 @@ def test_real_report_model_response_to_report(correct, template):
     assert "换手率：暂无数据" in output
     assert "较前一交易日成交量为 0.77 倍" in output
     assert "不适用（美股不适用 A 股口径筹码分布）" in output
+    if source == "actions_61_raw_response":
+        failed_report = (Path(__file__).parent / "fixtures/avgo_report_checklist_fragment.txt").read_text(encoding="utf-8-sig")
+        assert "- 具备反弹空间）" in failed_report
+        assert "具备反弹空间）" not in output
+        for item in checklist:
+            assert item in output
     assert result.to_dict() == before
 
 
@@ -134,7 +150,27 @@ def test_overview_status_and_correct_disclaimers_preserve_profile():
     profile = result.dashboard["data_perspective"]["volume_profile"]
     profile["explanation"] = "Volume Profile不能据此推导为套牢盘、主力成本或真实投资者持仓成本。"
     expected = deepcopy(profile)
-    result.dashboard["battle_plan"]["action_checklist"].append(BAD_CHECK)
+    correct_check = "✅ Volume Profile：POC不是主力成本，也不代表真实投资者持仓成本。"
+    result.dashboard["battle_plan"]["action_checklist"].extend([correct_check, BAD_CHECK])
     reconcile_report(result)
     assert result.dashboard["data_perspective"]["volume_profile"] == expected
     assert BAD_CHECK not in result.dashboard["battle_plan"]["action_checklist"]
+    assert correct_check in result.dashboard["battle_plan"]["action_checklist"]
+
+
+@pytest.mark.parametrize("semantic", ["筹码健康", "筹码缺失", "存在套牢盘", "POC是主力成本", "POC是真实持仓成本"])
+@pytest.mark.parametrize("separator", ["，", ";", "。", "\n"])
+def test_invalid_checklist_item_is_atomic(semantic, separator):
+    payload = _response(True)
+    before = "⚠️ 检查项4：无重大利空（存在小额减持计划）"
+    after = "⚠️ 检查项6：PE估值合理（动态PE 45倍，处于行业高位）"
+    invalid = f"- ✅ 检查项5：前半句（{semantic}{separator}任意后半句（附注））"
+    payload["dashboard"]["battle_plan"]["action_checklist"] = [before, invalid, after]
+    result = GeminiAnalyzer.__new__(GeminiAnalyzer)._parse_response(json.dumps(payload), "AVGO", "Broadcom")
+    result.market_snapshot = {"chip_status": "not_supported"}
+    profile = deepcopy(result.dashboard["data_perspective"]["volume_profile"])
+    reconcile_report(result)
+    assert result.dashboard["battle_plan"]["action_checklist"] == [before, after]
+    assert result.dashboard["data_perspective"]["volume_profile"] == profile
+    reconcile_report(result)
+    assert result.dashboard["battle_plan"]["action_checklist"] == [before, after]

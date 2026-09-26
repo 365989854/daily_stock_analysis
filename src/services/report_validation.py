@@ -72,10 +72,15 @@ def reconcile_report(result):
                     return ""
             return clause
 
-        def clean(value):
+        def clean(value, *, checklist=False):
             if isinstance(value, dict):
-                return {k: clean(v) for k, v in value.items()}
+                return {k: clean(v, checklist=(k == "action_checklist")) for k, v in value.items()}
             if isinstance(value, list):
+                if checklist:
+                    # A checklist item is one assertion, not independent clauses.
+                    # If any clause violates the chip contract, discard the whole
+                    # item; keep valid items verbatim, including their numbering.
+                    return [item for item in value if not isinstance(item, str) or (item.strip() and clean(item) == item)]
                 return [v for item in value if not isinstance(v := clean(item), str) or v.strip()]
             if isinstance(value, str):
                 # Keep normal VP price/distribution clauses and all numeric data.
