@@ -51,7 +51,8 @@ def test_pe_source_to_report(code, ttm, forward, availability, template):
          patch("src.services.report_renderer.get_config", return_value=config):
         markdown = NotificationService().generate_dashboard_report([result])
     assert "动态PE" not in markdown and "动态 PE" not in markdown
-    assert "PE估值参考" in markdown and "PE估值合理" not in markdown
+    assert "PE估值参考" not in markdown
+    assert any(title in markdown for title in ("PE估值合理", "PE估值偏高", "PE估值待确认"))
     assert (f"TTM PE：{ttm:.2f}倍" in markdown) == (availability in ("both", "ttm"))
     assert (f"Forward PE：{forward:.2f}倍" in markdown) == (availability in ("both", "forward"))
     assert ("PE数据不足" in markdown) == (availability in ("none", "invalid"))
@@ -84,7 +85,12 @@ def test_historical_report_without_pe_snapshot_is_unchanged():
 
 @pytest.mark.parametrize("code", ["MU", "AVGO"])
 @pytest.mark.parametrize("legacy", [True, False])
-def test_agent_pipeline_binds_actual_pe_context(code, legacy):
+@pytest.mark.parametrize("status,title,explanation", [
+    ("✅", "PE估值合理", "行业可比估值与盈利增长预期支持当前定价"),
+    ("❌", "PE估值偏高", "相对历史估值溢价未获盈利增长预期支持"),
+    ("⚠️", "PE估值待确认", "缺少行业与历史估值比较依据"),
+])
+def test_agent_pipeline_binds_actual_pe_context(code, legacy, status, title, explanation):
     import json
     from src.agent.executor import AgentResult
     from src.enums import ReportType
@@ -95,6 +101,7 @@ def test_agent_pipeline_binds_actual_pe_context(code, legacy):
     executor = MagicMock()
     executor.use_legacy_default_prompt = legacy
     payload = deepcopy(RAW)
+    payload["dashboard"]["battle_plan"]["action_checklist"][5] = f"{status} 检查项6：{title}（{explanation}）"
     executor.run.return_value = AgentResult(success=True, content=json.dumps(payload),
                                            dashboard=payload, provider="test")
     fundamental = {"market": "us", "valuation": {"data": {"pe_ttm": 19.2, "pe_forward": 11.3}}}
@@ -106,6 +113,10 @@ def test_agent_pipeline_binds_actual_pe_context(code, legacy):
     assert saved.market_snapshot["pe_valuation"] == fundamental["valuation"]["data"]
     assert "TTM PE：19.20倍；Forward PE：11.30倍" in saved.dashboard["battle_plan"]["action_checklist"][-1]
     assert saved.fundamental_context == fundamental
+    check = saved.dashboard["battle_plan"]["action_checklist"][-1]
+    assert check.startswith(f"{status} 检查项6：{title}")
+    assert explanation in check
+    assert report_display_result(saved).dashboard["battle_plan"]["action_checklist"][-1] == check
 
 
 @pytest.mark.parametrize("ttm,forward,expected", [
@@ -116,3 +127,66 @@ def test_pe_edge_values_do_not_create_valuation_judgments(ttm, forward, expected
     result, _, _, _ = _analyze(profile=PROFILE, source={
         "fundamental_context": {"valuation": {"data": {"pe_ttm": ttm, "pe_forward": forward}}}})
     assert expected in result.dashboard["battle_plan"]["action_checklist"][-1]
+
+
+@pytest.mark.parametrize("template", [True, False])
+@pytest.mark.parametrize("status,title,explanation", [
+    ("✅", "PE估值合理", "行业可比估值与盈利增长预期支持当前定价"),
+    ("❌", "PE估值偏高", "相对历史估值溢价未获盈利增长预期支持"),
+    ("⚠️", "PE估值待确认", "缺少行业与历史估值比较依据"),
+])
+def test_model_judgment_survives_parsing_reconciliation_and_markdown(template, status, title, explanation):
+    from tests.test_default_us_checklist import RAW
+    payload = deepcopy(RAW)
+    # Identical PE inputs with different mocked model assessments: the host must
+    # preserve the assessment, not independently decide a status from the values.
+    payload["dashboard"]["battle_plan"]["action_checklist"][5] = (
+        f"{status} 检查项6：{title}（TTM PE：999倍；Forward PE：888倍；{explanation}）")
+    fundamental = {"valuation": {"data": {"pe_ttm": 12.06, "pe_forward": 4.33}}}
+    result, original, analyzer, _ = _analyze(profile=PROFILE, payload=payload,
+                                           source={"fundamental_context": fundamental})
+    baseline, _, _, _ = _analyze(profile=PROFILE, payload=payload)
+    assert result.dashboard["battle_plan"]["action_checklist"][:5] == baseline.dashboard["battle_plan"]["action_checklist"][:5]
+    assert result.sentiment_score == original["sentiment_score"]
+    assert result.decision_type == original["decision_type"]
+    expected = f"{status} 检查项6：{title}（TTM PE：12.06倍；Forward PE：4.33倍；{explanation}）"
+    assert result.dashboard["battle_plan"]["action_checklist"][5] == expected
+    before = deepcopy(result.to_dict())
+    config = Config(stock_list=[], report_renderer_enabled=template)
+    with patch("src.notification.get_config", return_value=config), \
+         patch("src.services.report_renderer.get_config", return_value=config):
+        output = NotificationService().generate_dashboard_report([result])
+    assert expected in output
+    assert "999倍" not in output and "888倍" not in output
+    assert result.to_dict() == before
+    assert report_display_result(report_display_result(result)).dashboard == report_display_result(result).dashboard
+    prompt = analyzer._get_analysis_system_prompt("zh", "AVGO")
+    assert "❌ PE估值偏高" in prompt and "⚠️ PE估值待确认" in prompt
+
+
+@pytest.mark.parametrize("item,values", [
+    ("✅ 检查项6：PE估值合理", {"pe_ttm": 12, "pe_forward": 4}),
+    ("✅ 检查项6：PE估值合理（TTM PE：12倍；Forward PE：4倍）", {"pe_ttm": 12, "pe_forward": 4}),
+    ("✅ 检查项6：PE估值合理（盈利增长支持定价）", {}),
+])
+def test_missing_pe_or_missing_reason_does_not_become_a_positive_judgment(item, values):
+    from tests.test_default_us_checklist import RAW
+    payload = deepcopy(RAW)
+    payload["dashboard"]["battle_plan"]["action_checklist"][5] = item
+    result, _, _, _ = _analyze(profile=PROFILE, payload=payload, source={
+        "fundamental_context": {"valuation": {"data": values}}})
+    assert result.dashboard["battle_plan"]["action_checklist"][5].startswith("⚠️ 检查项6：PE估值待确认")
+
+
+
+def test_explicit_skill_non_pe_sixth_and_pe_mentions_in_other_checks_are_untouched():
+    from tests.test_default_us_checklist import RAW
+    payload = deepcopy(RAW)
+    checks = payload["dashboard"]["battle_plan"]["action_checklist"]
+    checks[0] = "✅ 检查项1：多头排列（均线成立，PE另见基本面）"
+    checks[5] = "✅ 检查项6：仓位计划明确（按原策略控制风险）"
+    result, _, _, _ = _analyze(profile=PROFILE, legacy=False, payload=payload, source={
+        "fundamental_context": {"valuation": {"data": {"pe_ttm": 12, "pe_forward": 4}}}})
+    actual = result.dashboard["battle_plan"]["action_checklist"]
+    assert actual[0] == checks[0]
+    assert actual[5] == checks[5]

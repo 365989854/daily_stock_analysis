@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] 恢复 PE 检查项6由模型给出的三态估值判断及理由，保留 TTM/Forward PE 原始数值展示；不再统一覆盖为 ⚠️，不改变评分公式及其他检查项。
+
 - [修复] 股票报告明确区分 yfinance TTM PE 与 Forward PE，缺失时不补造；同步普通分析及 Agent 估值口径，保留既有评分公式与历史报告。
 
 - [修复] 默认美股六项检查清单的 Prompt 和示例明确要求具体依据；校验保留已有理由，严格沿用 ✅/⚠️/❌ 三态，缺理由时仅使用原始数据补充 ⚠️ 客观描述，数据不足明确未作判断，不由 POC 位置生成通过或不通过结论；使用 Actions #63 原始响应覆盖回归。

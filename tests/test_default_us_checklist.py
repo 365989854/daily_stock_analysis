@@ -81,7 +81,7 @@ def test_default_us_six_dimensions_end_to_end(profile, correct, template):
     assert "筹码结构是否健康？" not in user
     assert '"profit_ratio":' not in system
     for number, title in enumerate(TITLES, 1):
-        assert f"检查项{number}：{title.replace('PE估值合理', 'PE估值参考')}" in system
+        assert f"检查项{number}：{title}" in system
     assert NO_PROFILE in user
     before = deepcopy(result.to_dict())
     config = Config(stock_list=[], report_renderer_enabled=template)

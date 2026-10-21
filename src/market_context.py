@@ -186,7 +186,9 @@ Distinguish pe_ttm (trailingPE, trailing twelve-month earnings) from pe_forward
 An unqualified pe_ratio has no guaranteed basis; do not relabel it as either field.
 TTM PE is not a valuation of future earnings. Use only supplied numerical facts.
 Do not infer overvaluation or undervaluation from PE alone: cite supplied industry,
-historical valuation or earnings-growth comparisons. Without such evidence, show
-only available TTM PE / Forward PE values and make no valuation judgment.
+historical valuation or earnings-growth comparisons. Use that evidence to judge
+checklist item 6: ✅ PE估值合理, ❌ PE估值偏高, or ⚠️ PE估值待确认.
+Preserve a justified valuation judgment; do not default every PE item to ⚠️.
+Without sufficient evidence, use ⚠️ and explain the uncertainty.
 If both are missing, state PE数据不足 (PE data insufficient). Do not invent values.
 """

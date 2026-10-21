@@ -18,7 +18,10 @@ dashboard.battle_plan.action_checklist 必须恰好六项，按检查项1至6排
 3. 量能配合
 4. 无重大利空
 5. 成交量价格结构（Volume Profile）
-6. PE估值参考（TTM PE / Forward PE；只列实际提供的值）
+6. PE估值判断：根据本次输入中的 TTM PE、Forward PE、行业比较、历史估值和盈利预期判断。
+第6项使用 ✅ PE估值合理 / ❌ PE估值偏高 / ⚠️ PE估值待确认，并解释判断依据。
+有依据时作出判断；证据不足时才使用 ⚠️，不得仅凭 PE 绝对值或固定阈值判断。
+解释中明确展示实际取得的 TTM PE 和 Forward PE；缺失的指标不得编造。
 每项必须输出“状态 检查项N：名称（基于本次输入的简短判断依据）”，不得只列名称。
 状态只允许 ✅/⚠️/❌：✅ 表示满足条件，⚠️ 表示信息不足、中性或无法明确判断，❌ 表示明确不满足。
 第5项名称中的“（Volume Profile）”不算判断依据，名称之后必须另附理由。
@@ -55,7 +58,7 @@ def default_us_prompt(prompt):
     prompt = prompt.replace("- `get_chip_distribution` 获取筹码分布", "- 使用上下文中的 Volume Profile；不可用时明确未作判断")
     prompt = prompt.replace("- ✅ 筹码集中健康", "- 成交量价格结构仅作为历史分布参考，不作为独立买入条件")
     prompt = prompt.replace("量能/筹码", "量能/成交量价格结构")
-    return prompt.replace("PE估值合理", "PE估值参考") + "\n" + CONTRACT
+    return prompt + "\n" + CONTRACT
 
 
 def bind_default_us_checklist(result, *, legacy, volume_profile, source_context=None):
@@ -158,6 +161,9 @@ def restore_default_us_checklist(result):
                 r"筹码|套牢盘|主力成本|持仓成本|获利比例|profit_ratio|avg_cost|concentration", item,
             )):
                 item = f"⚠️ 检查项5：{title}（{description}；仅描述历史成交量价格分布，未据此作方向性判断）"
+        elif number == 6 and "pe_valuation" in snapshot and item:
+            # Accept all three PE titles; do not erase the model judgment here.
+            pass
         elif not _has_reason(item, title):
             reason = _source_reason(number, context.get("facts") or {})
             item = f"⚠️ 检查项{number}：{title}（{reason or '依据不足，未作判断'}）"
@@ -214,11 +220,33 @@ def reconcile_pe_checklist(result):
         if math.isfinite(value):
             cells.append(f"{label}：{value:.2f}倍" if language == "zh" else f"{label}: {value:.2f}x")
     reason = "；".join(cells) or ("PE数据不足" if language == "zh" else "PE data insufficient")
-    title = "PE估值参考" if language == "zh" else "PE valuation reference"
     battle = result.dashboard.get("battle_plan") or {}
     checks = battle.get("action_checklist") or []
     default = (snapshot.get("checklist_context") or {}).get("mode") == MODE
     for index, item in enumerate(checks):
-        if isinstance(item, str) and (re.search(r"(?i)\bPE\b|PE估值|市盈率", item) or (default and index == 5)):
-            prefix = re.search(r"检查项\s*\d+\s*[：:]", item)
-            checks[index] = f"⚠️ {prefix[0] if prefix else ''}{title}（{reason}）"
+        if not isinstance(item, str):
+            continue
+        is_pe_sixth = re.search(r"检查项\s*6\s*[：:]\s*(?:PE|市盈率)", item)
+        if not (is_pe_sixth or (default and index == 5)):
+            continue
+        prefix = re.search(r"检查项\s*6\s*[：:]", item)
+        match = re.match(
+            r"^(✅|❌|⚠️)\s*(?:检查项\s*6\s*[：:]\s*)?"
+            r"(?:PE估值(?:合理|偏高|待确认|参考)|PE valuation (?:reasonable|high|unconfirmed|reference))"
+            r"\s*[（(:：]\s*(.*?)\s*[）)]?$", item,
+        )
+        status, explanation = (match[1], match[2]) if match else ("⚠️", "")
+        # Replace standalone PE values but retain industry/history/growth reasoning.
+        # Removing previously rendered values also makes this operation idempotent.
+        explanation = re.sub(
+            r"(?:^|[；;，,]\s*)(?:当前\s*)?(?:TTM\s*PE|Forward\s*PE|动态\s*PE|PE)"
+            r"\s*(?:[：:=]|约|为)?\s*[-+]?\d+(?:\.\d+)?\s*(?:倍|x)?",
+            "", explanation, flags=re.I,
+        ).strip("；;，, ")
+        if not cells or not explanation:
+            status = "⚠️"
+            explanation = "依据不足，未作判断" if language == "zh" else "Insufficient evidence for a judgment"
+        titles = ({"✅": "PE估值合理", "❌": "PE估值偏高", "⚠️": "PE估值待确认"}
+                  if language == "zh" else
+                  {"✅": "PE valuation reasonable", "❌": "PE valuation high", "⚠️": "PE valuation unconfirmed"})
+        checks[index] = f"{status} {prefix[0] if prefix else ''}{titles[status]}（{reason}；{explanation}）"
