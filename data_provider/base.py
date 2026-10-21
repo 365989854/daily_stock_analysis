@@ -3963,6 +3963,15 @@ class DataFetcherManager:
             str(bundle_payload.get("status", "not_supported")),
             bundle_ms,
         )
+        # Only these explicitly sourced fields carry a verified PE basis.
+        pe_values = bundle_payload.get("valuation") or {}
+        result_ctx["valuation"]["data"].update({
+            key: pe_values.get(key) for key in ("pe_ttm", "pe_forward")
+        })
+        if any(pe_values.get(key) is not None for key in ("pe_ttm", "pe_forward")):
+            valuation_status = self._infer_block_status(result_ctx["valuation"]["data"], "partial")
+            result_ctx["valuation"]["status"] = valuation_status
+            result_ctx["valuation"]["source_chain"].extend(bundle_chain)
         adapter_errors = list(bundle_payload.get("errors", []))
         if bundle_err:
             adapter_errors.append(bundle_err)

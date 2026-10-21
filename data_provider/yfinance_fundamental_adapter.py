@@ -28,6 +28,7 @@ mark the block as ``partial`` when only some fields are populated.
 from __future__ import annotations
 
 import logging
+import math
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -182,6 +183,15 @@ class YfinanceFundamentalAdapter:
         # renderer can suffix per-block currency tags correctly.
         financial_currency = str(info.get("financialCurrency") or info.get("currency") or "").upper() or None
         dividend_currency = str(info.get("currency") or info.get("financialCurrency") or "").upper() or None
+
+        # Reuse the existing info response; keep PE bases explicit.
+        result["valuation"] = {}
+        for field, source in (("pe_ttm", "trailingPE"), ("pe_forward", "forwardPE")):
+            raw = info.get(source)
+            value = None if isinstance(raw, bool) else _safe_float(raw)
+            result["valuation"][field] = value if value is not None and math.isfinite(value) else None
+        if any(value is not None for value in result["valuation"].values()):
+            result["source_chain"].append("valuation:yfinance.info")
 
         # ---------------- growth block ----------------
         growth_payload: Dict[str, Any] = {
@@ -366,7 +376,8 @@ class YfinanceFundamentalAdapter:
             result["source_chain"].append("belong_boards:yfinance.info")
 
         has_content = bool(
-            result.get("growth")
+            any(value is not None for value in result.get("valuation", {}).values())
+            or result.get("growth")
             or result.get("earnings")
             or result.get("belong_boards")
         )

@@ -4189,7 +4189,7 @@ class GeminiAnalyzer:
 | 当前价格 | {rt.get('price', 'N/A')} 元 | |
 | **量比** | **{rt.get('volume_ratio', 'N/A')}** | {rt.get('volume_ratio_desc', '')} |
 | **换手率** | **{format_turnover_rate(rt.get('turnover_rate'), report_language)}** | |
-| 市盈率(动态) | {rt.get('pe_ratio', 'N/A')} | |
+| 市盈率（来源未注明口径） | {rt.get('pe_ratio', 'N/A')} | 不得视为 TTM 或 Forward PE |
 | 市净率 | {rt.get('pb_ratio', 'N/A')} | |
 | 总市值 | {self._format_amount(rt.get('total_mv'))} | |
 | 流通市值 | {self._format_amount(rt.get('circ_mv'))} | |
@@ -4205,6 +4205,8 @@ class GeminiAnalyzer:
 
         # 添加财报与分红（价值投资口径）
         fundamental_context = context.get("fundamental_context") if isinstance(context, dict) else None
+        valuation = (fundamental_context or {}).get("valuation", {}).get("data", {})
+        prompt += f"\nTTM PE: {valuation.get('pe_ttm', 'N/A')}\nForward PE: {valuation.get('pe_forward', 'N/A')}\n"
         earnings_block = (
             fundamental_context.get("earnings", {})
             if isinstance(fundamental_context, dict)

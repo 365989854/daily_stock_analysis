@@ -46,7 +46,7 @@ def test_actions63_names_only_complete_reasons_and_rendering(template):
     system = analyzer._get_analysis_system_prompt("zh", "AVGO")
     examples = json.loads(re.search(r'"action_checklist":\s*(\[[^\]]*\])', system).group(1))
     for title, example in zip(TITLES, examples):
-        assert title + "（" in example
+        assert title.replace("PE估值合理", "PE估值参考") + "（" in example
         assert example.startswith("✅/⚠️/❌ 检查项")
     assert all("⚪" not in item and "ℹ️" not in item for item in examples)
     assert "未据此作方向性判断" in checks[4]

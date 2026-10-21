@@ -18,7 +18,7 @@ dashboard.battle_plan.action_checklist 必须恰好六项，按检查项1至6排
 3. 量能配合
 4. 无重大利空
 5. 成交量价格结构（Volume Profile）
-6. PE估值合理
+6. PE估值参考（TTM PE / Forward PE；只列实际提供的值）
 每项必须输出“状态 检查项N：名称（基于本次输入的简短判断依据）”，不得只列名称。
 状态只允许 ✅/⚠️/❌：✅ 表示满足条件，⚠️ 表示信息不足、中性或无法明确判断，❌ 表示明确不满足。
 第5项名称中的“（Volume Profile）”不算判断依据，名称之后必须另附理由。
@@ -55,11 +55,20 @@ def default_us_prompt(prompt):
     prompt = prompt.replace("- `get_chip_distribution` 获取筹码分布", "- 使用上下文中的 Volume Profile；不可用时明确未作判断")
     prompt = prompt.replace("- ✅ 筹码集中健康", "- 成交量价格结构仅作为历史分布参考，不作为独立买入条件")
     prompt = prompt.replace("量能/筹码", "量能/成交量价格结构")
-    return prompt + "\n" + CONTRACT
+    return prompt.replace("PE估值合理", "PE估值参考") + "\n" + CONTRACT
 
 
 def bind_default_us_checklist(result, *, legacy, volume_profile, source_context=None):
     """Persist host-selected mode and source facts; never infer mode from item number."""
+    source = source_context if isinstance(source_context, dict) else {}
+    fundamental = source.get("fundamental_context") or {}
+    valuation = fundamental.get("valuation", {}).get("data", {})
+    if not isinstance(getattr(result, "market_snapshot", None), dict):
+        result.market_snapshot = {}
+    if "fundamental_context" in source:
+        result.market_snapshot["pe_valuation"] = {
+            key: valuation.get(key) for key in ("pe_ttm", "pe_forward")
+        }
     if legacy is not True or not is_us_stock_code(getattr(result, "code", "")):
         return
     if not isinstance(getattr(result, "market_snapshot", None), dict):
@@ -184,3 +193,32 @@ def _source_reason(number, facts):
         if pe is not None:
             return f"PE {pe:.2f}倍；比较依据不足，未判断估值高低"
     return None
+
+
+def reconcile_pe_checklist(result):
+    """Render new PE evidence without changing scores, actions or historical records."""
+    snapshot = getattr(result, "market_snapshot", None) or {}
+    if "pe_valuation" not in snapshot:
+        return
+    values = snapshot["pe_valuation"]
+    language = getattr(result, "report_language", "zh")
+    cells = []
+    for key, label in (("pe_ttm", "TTM PE"), ("pe_forward", "Forward PE")):
+        raw = values.get(key)
+        if isinstance(raw, bool):
+            continue
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(value):
+            cells.append(f"{label}：{value:.2f}倍" if language == "zh" else f"{label}: {value:.2f}x")
+    reason = "；".join(cells) or ("PE数据不足" if language == "zh" else "PE data insufficient")
+    title = "PE估值参考" if language == "zh" else "PE valuation reference"
+    battle = result.dashboard.get("battle_plan") or {}
+    checks = battle.get("action_checklist") or []
+    default = (snapshot.get("checklist_context") or {}).get("mode") == MODE
+    for index, item in enumerate(checks):
+        if isinstance(item, str) and (re.search(r"(?i)\bPE\b|PE估值|市盈率", item) or (default and index == 5)):
+            prefix = re.search(r"检查项\s*\d+\s*[：:]", item)
+            checks[index] = f"⚠️ {prefix[0] if prefix else ''}{title}（{reason}）"

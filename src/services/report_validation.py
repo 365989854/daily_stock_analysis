@@ -100,6 +100,8 @@ def reconcile_report(result):
                 setattr(result, key, clean(value))
     from src.services.us_report_checklist import restore_default_us_checklist
     restore_default_us_checklist(result)
+    from src.services.us_report_checklist import reconcile_pe_checklist
+    reconcile_pe_checklist(result)
     return result
 
 

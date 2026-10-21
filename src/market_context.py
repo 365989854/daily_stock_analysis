@@ -176,4 +176,17 @@ def get_market_guidelines(stock_code: Optional[str], lang: str = "zh") -> str:
     """
     market = detect_market(stock_code)
     lang_key = "en" if lang in ("en", "ko") else "zh"
-    return _MARKET_GUIDELINES.get(market, _MARKET_GUIDELINES["cn"])[lang_key]
+    return _MARKET_GUIDELINES.get(market, _MARKET_GUIDELINES["cn"])[lang_key] + PE_GUIDELINES
+
+
+PE_GUIDELINES = """
+## PE valuation basis
+Distinguish pe_ttm (trailingPE, trailing twelve-month earnings) from pe_forward
+(forwardPE, forecast earnings). Never call either 动态 PE or 动态市盈率.
+An unqualified pe_ratio has no guaranteed basis; do not relabel it as either field.
+TTM PE is not a valuation of future earnings. Use only supplied numerical facts.
+Do not infer overvaluation or undervaluation from PE alone: cite supplied industry,
+historical valuation or earnings-growth comparisons. Without such evidence, show
+only available TTM PE / Forward PE values and make no valuation judgment.
+If both are missing, state PE数据不足 (PE data insufficient). Do not invent values.
+"""
